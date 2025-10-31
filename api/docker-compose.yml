@@ -1,14 +1,14 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: travel-app-postgres
+    container_name: fullstack-corpo-postgres
     restart: unless-stopped
     ports:
       - '5432:5432'
     environment:
       POSTGRES_USER: dev
       POSTGRES_PASSWORD: dev
-      POSTGRES_DB: travel_app
+      POSTGRES_DB: fullstack_corpo
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -19,7 +19,7 @@ services:
 
   inbucket:
     image: inbucket/inbucket:latest
-    container_name: travel-app-inbucket
+    container_name: fullstack-corpo-inbucket
     restart: unless-stopped
     ports:
       - '9000:9000' # Web UI

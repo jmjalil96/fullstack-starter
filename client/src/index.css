@@ -1,1 +1,66 @@
 @import 'tailwindcss';
+
+@theme {
+  /* Color Palette */
+  --color-navy: #0c2939;
+  --color-teal: #008c7e;
+  --color-gold: #e2ab33;
+  --color-light-gray: #d9dfe1;
+
+  /* Semantic Color Tokens */
+  --color-primary: var(--color-gold);
+  --color-primary-hover: #c99827;
+  --color-secondary: var(--color-teal);
+  --color-secondary-hover: #007066;
+  --color-accent: var(--color-navy);
+
+  /* Text Colors */
+  --color-text-primary: var(--color-navy);
+  --color-text-secondary: #5a6c76;
+  --color-text-light: #8a9ba5;
+  --color-text-white: #ffffff;
+
+  /* Background Colors */
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f5f7f8;
+  --color-bg-sidebar: var(--color-navy);
+  --color-bg-hover: #e8f4f3;
+
+  /* Border Colors */
+  --color-border: var(--color-light-gray);
+  --color-border-light: #e8ecee;
+
+  /* Tailwind Custom Colors */
+  --color-navy-50: #e6edf1;
+  --color-navy-100: #ccdbe3;
+  --color-navy-200: #99b7c7;
+  --color-navy-300: #6693ab;
+  --color-navy-400: #336f8f;
+  --color-navy-500: #0c2939;
+  --color-navy-600: #0a2330;
+  --color-navy-700: #081d27;
+  --color-navy-800: #06171e;
+  --color-navy-900: #041115;
+
+  --color-teal-50: #e6f5f4;
+  --color-teal-100: #ccebe9;
+  --color-teal-200: #99d7d3;
+  --color-teal-300: #66c3bd;
+  --color-teal-400: #33afa7;
+  --color-teal-500: #008c7e;
+  --color-teal-600: #007066;
+  --color-teal-700: #00544e;
+  --color-teal-800: #003836;
+  --color-teal-900: #001c1e;
+
+  --color-gold-50: #fef9ed;
+  --color-gold-100: #fdf3db;
+  --color-gold-200: #fbe7b7;
+  --color-gold-300: #f9db93;
+  --color-gold-400: #f7cf6f;
+  --color-gold-500: #e2ab33;
+  --color-gold-600: #c99827;
+  --color-gold-700: #97721d;
+  --color-gold-800: #654c13;
+  --color-gold-900: #32260a;
+}

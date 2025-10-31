@@ -63,8 +63,12 @@ export function ProtectedRoute({
       toast.info(message)
       hasShownToast.current = true
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [guard.needsAuth, message])
+
+    // Reset when user gains access
+    if (guard.canAccess) {
+      hasShownToast.current = false
+    }
+  }, [guard.needsAuth, guard.canAccess, message, toast])
 
   // Still checking authentication status
   if (guard.isChecking) {

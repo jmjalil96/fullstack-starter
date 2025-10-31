@@ -1,12 +1,24 @@
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 
+import { Biblioteca } from './pages/Biblioteca'
+import { CapstoneAI } from './pages/CapstoneAI'
+import { CasosAbiertos } from './pages/casos/CasosAbiertos'
+import { MisCasos } from './pages/casos/MisCasos'
+import { NuevoCaso } from './pages/casos/NuevoCaso'
+import { Afiliados } from './pages/clientes/Afiliados'
+import { Clientes } from './pages/clientes/Clientes'
+import { Polizas } from './pages/clientes/Polizas'
 import { Dashboard } from './pages/Dashboard'
 import { ForgotPassword } from './pages/ForgotPassword'
 import { Home } from './pages/Home'
 import { Login } from './pages/Login'
+import { Atencion } from './pages/reclamos/Atencion'
+import { MisReclamos } from './pages/reclamos/MisReclamos'
+import { NuevoReclamo } from './pages/reclamos/NuevoReclamo'
 import { ResetPassword } from './pages/ResetPassword'
 import { Signup } from './pages/Signup'
 import { ErrorBoundary } from './shared/components/ErrorBoundary'
+import { MainLayout } from './shared/components/mainLayout'
 import { ProtectedRoute } from './shared/components/ProtectedRoute'
 
 /**
@@ -25,18 +37,40 @@ function AppRoutes() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
 
-        {/* Protected Routes */}
+        {/* Protected Routes with MainLayout */}
         <Route
-          path="/dashboard"
+          path="/*"
           element={
             <ProtectedRoute>
-              <Dashboard />
+              <MainLayout />
             </ProtectedRoute>
           }
-        />
+        >
+          {/* Dashboard */}
+          <Route path="dashboard" element={<Dashboard />} />
 
-        {/* 404 - Redirect to home */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+          {/* Reclamos */}
+          <Route path="reclamos/nuevo" element={<NuevoReclamo />} />
+          <Route path="reclamos/mis-reclamos" element={<MisReclamos />} />
+          <Route path="reclamos/atencion" element={<Atencion />} />
+
+          {/* Clientes */}
+          <Route path="clientes/lista" element={<Clientes />} />
+          <Route path="clientes/polizas" element={<Polizas />} />
+          <Route path="clientes/afiliados" element={<Afiliados />} />
+
+          {/* Casos (Centro de Resolución) */}
+          <Route path="casos/nuevo" element={<NuevoCaso />} />
+          <Route path="casos/mis-casos" element={<MisCasos />} />
+          <Route path="casos/abiertos" element={<CasosAbiertos />} />
+
+          {/* Other Pages */}
+          <Route path="biblioteca" element={<Biblioteca />} />
+          <Route path="capstone-ai" element={<CapstoneAI />} />
+
+          {/* 404 - Redirect to dashboard */}
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Route>
       </Routes>
     </ErrorBoundary>
   )

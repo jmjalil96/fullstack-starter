@@ -59,10 +59,10 @@ export function Button({
 }: ButtonProps) {
   // Variant styles
   const variants = {
-    primary: 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500',
-    secondary: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus:ring-gray-500',
+    primary: 'bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-hover)] focus:ring-[var(--color-gold)]',
+    secondary: 'bg-white text-[var(--color-text-primary)] border border-[var(--color-border)] hover:bg-[var(--color-bg-secondary)] focus:ring-[var(--color-teal)]',
     danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500',
-    ghost: 'bg-transparent text-gray-700 hover:bg-gray-100 focus:ring-gray-500',
+    ghost: 'bg-transparent text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] focus:ring-[var(--color-teal)]',
   }
 
   // Size styles
@@ -84,7 +84,7 @@ export function Button({
       {loading && (
         <Spinner
           size="sm"
-          color={variant === 'secondary' || variant === 'ghost' ? 'primary' : 'white'}
+          color={variant === 'primary' ? 'white' : variant === 'danger' ? 'white' : 'primary'}
           className="mr-2"
         />
       )}

@@ -16,12 +16,12 @@ import { Spinner } from './ui/Spinner'
  * </AuthInitializer>
  */
 export function AuthInitializer({ children }: { children: ReactNode }) {
-  const { isInitialized, checkSession } = useAuthStore()
+  const isInitialized = useAuthStore((state) => state.isInitialized)
 
   useEffect(() => {
-    // Check session on mount
-    checkSession()
-  }, [checkSession])
+    // Check session on mount - use getState() to avoid subscription
+    useAuthStore.getState().checkSession()
+  }, [])
 
   // Show loading spinner until session check completes
   if (!isInitialized) {

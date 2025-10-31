@@ -135,14 +135,14 @@ export const useAuthStore = create<AuthStore>()(
 
           set({ isAuthenticating: false })
         } catch (error) {
-          let errorMessage = 'Login failed. Please try again.'
+          let errorMessage = 'Inicio de sesión falló. Intenta de nuevo.'
 
           if (error instanceof ApiRequestError) {
             // Handle specific error cases
             if (error.statusCode === 401) {
-              errorMessage = 'Invalid email or password'
+              errorMessage = 'Correo o contraseña inválidos'
             } else if (error.statusCode === 403) {
-              errorMessage = 'Please verify your email address'
+              errorMessage = 'Por favor verifica tu correo electrónico'
             } else {
               errorMessage = error.message
             }
@@ -181,14 +181,14 @@ export const useAuthStore = create<AuthStore>()(
 
           set({ isAuthenticating: false })
         } catch (error) {
-          let errorMessage = 'Signup failed. Please try again.'
+          let errorMessage = 'Registro falló. Intenta de nuevo.'
 
           if (error instanceof ApiRequestError) {
             // Handle specific error cases
             if (error.statusCode === 400) {
-              errorMessage = 'Email already in use'
+              errorMessage = 'El correo ya está en uso'
             } else if (error.statusCode === 422) {
-              errorMessage = 'Invalid input. Please check your details.'
+              errorMessage = 'Entrada inválida. Verifica tus datos.'
             } else {
               errorMessage = error.message
             }
@@ -257,7 +257,7 @@ export const useAuthStore = create<AuthStore>()(
           // Success - email sent (always succeeds for security)
           set({ isAuthenticating: false })
         } catch (error) {
-          let errorMessage = 'Failed to send reset email. Please try again.'
+          let errorMessage = 'No se pudo enviar el correo. Intenta de nuevo.'
 
           if (error instanceof ApiRequestError) {
             errorMessage = error.message
@@ -293,12 +293,12 @@ export const useAuthStore = create<AuthStore>()(
           // Success - password reset
           set({ isAuthenticating: false })
         } catch (error) {
-          let errorMessage = 'Failed to reset password.'
+          let errorMessage = 'No se pudo restablecer la contraseña.'
 
           if (error instanceof ApiRequestError) {
             // Handle specific error cases
             if (error.statusCode === 400) {
-              errorMessage = 'Invalid or expired reset link'
+              errorMessage = 'Enlace inválido o expirado'
             } else {
               errorMessage = error.message
             }
