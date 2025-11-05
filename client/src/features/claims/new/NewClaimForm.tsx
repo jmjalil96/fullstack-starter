@@ -58,6 +58,7 @@ export function NewClaimForm() {
   // Watch for cascading dependencies
   const clientId = watch('clientId')
   const affiliateId = watch('affiliateId')
+  const description = watch('description')
 
   // Mutation hook
   const { createClaim, loading } = useCreateClaim()
@@ -137,7 +138,7 @@ export function NewClaimForm() {
               <ClientSelect control={control} error={errors.clientId} />
               <AffiliateSelect control={control} error={errors.affiliateId} clientId={clientId} />
               <PatientSelect control={control} error={errors.patientId} affiliateId={affiliateId} />
-              <DescriptionField register={register} error={errors.description} />
+              <DescriptionField register={register} error={errors.description} value={description} />
             </div>
           </div>
 

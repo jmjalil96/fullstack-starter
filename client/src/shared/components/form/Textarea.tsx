@@ -2,7 +2,7 @@
  * Textarea - Generic textarea component with character counter
  */
 
-import { type TextareaHTMLAttributes, useId } from 'react'
+import { type ChangeEvent, type TextareaHTMLAttributes, useEffect, useId, useRef, useState } from 'react'
 
 /**
  * Props for Textarea component
@@ -57,12 +57,50 @@ export function Textarea({
 }: TextareaProps) {
   const errorId = useId()
   const helperId = useId()
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Initialize local length from value or defaultValue
+  const [localLength, setLocalLength] = useState(() => {
+    if (typeof value === 'string') return value.length
+    return String(textareaProps.defaultValue ?? '').length
+  })
+
+  // Merge refs - combine our ref with RHF ref from textareaProps
+  const mergedRef = (element: HTMLTextAreaElement | null) => {
+    textareaRef.current = element
+    // Call RHF ref if it exists in textareaProps
+    const propsWithRef = textareaProps as typeof textareaProps & {
+      ref?: React.Ref<HTMLTextAreaElement>
+    }
+    const rhfRef = propsWithRef.ref
+    if (typeof rhfRef === 'function') {
+      rhfRef(element)
+    } else if (rhfRef && typeof rhfRef === 'object') {
+      ;(rhfRef as React.MutableRefObject<HTMLTextAreaElement | null>).current = element
+    }
+  }
+
+  // Sync localLength when controlled value changes OR when DOM value changes (for RHF reset)
+  useEffect(() => {
+    if (typeof value === 'string') {
+      setLocalLength(value.length)
+    } else if (textareaRef.current) {
+      // Sync with actual DOM value in uncontrolled (RHF) mode
+      setLocalLength(textareaRef.current.value.length)
+    }
+  }, [value])
 
   // Calculate aria-describedby
   const ariaDescribedBy = error ? errorId : helperText ? helperId : undefined
 
-  // Calculate current character count (handle both controlled and RHF modes)
-  const currentLength = typeof value === 'string' ? value.length : 0
+  // Wrap onChange to track length for uncontrolled mode
+  const handleChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
+    setLocalLength(e.target.value.length)
+    textareaProps.onChange?.(e)
+  }
+
+  // Calculate current character count (controlled mode uses value, uncontrolled uses localLength)
+  const currentLength = typeof value === 'string' ? value.length : localLength
 
   return (
     <div>
@@ -76,7 +114,9 @@ export function Textarea({
 
       {/* Textarea */}
       <textarea
+        ref={mergedRef}
         {...textareaProps}
+        onChange={handleChange}
         {...(value !== undefined && { value })}
         rows={rows}
         maxLength={maxLength}
