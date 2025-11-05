@@ -23,7 +23,25 @@ export class ApiRequestError extends Error {
 }
 
 /**
+ * Global 401 unauthorized handler
+ * Registered by authStore to clear auth state on session expiration
+ */
+let onUnauthorized: (() => void) | null = null
+
+/**
+ * Register a callback to handle 401 unauthorized responses
+ * Called by authStore on initialization
+ *
+ * @param cb - Callback to execute when 401 is received
+ */
+export function registerUnauthorizedHandler(cb: () => void) {
+  onUnauthorized = cb
+}
+
+/**
  * Type-safe fetch wrapper for API calls
+ *
+ * Supports all standard RequestInit options including AbortController signal.
  *
  * @example
  * const user = await fetchAPI<User>('/api/users/me')
@@ -33,6 +51,12 @@ export class ApiRequestError extends Error {
  *
  * @example
  * const data = await fetchAPI<SessionResponse>('/api/auth/get-session')
+ *
+ * @example
+ * // With AbortController for cancellation
+ * const controller = new AbortController()
+ * const data = await fetchAPI('/api/data', { signal: controller.signal })
+ * // Later: controller.abort()
  */
 export async function fetchAPI<T = unknown>(
   endpoint: string,
@@ -42,12 +66,12 @@ export async function fetchAPI<T = unknown>(
 
   // Default options
   const config: RequestInit = {
-    credentials: 'include', // Important: Include cookies for sessions
+    ...options, // Spread first (preserves signal, method, body, etc.)
+    credentials: 'include', // Override to always include cookies for sessions
     headers: {
       'Content-Type': 'application/json',
-      ...options.headers,
+      ...(options.headers ?? {}), // Merge any custom headers
     },
-    ...options,
   }
 
   try {
@@ -64,6 +88,12 @@ export async function fetchAPI<T = unknown>(
     // Handle error responses
     if (!response.ok) {
       const error = data as ApiError
+
+      // Intercept 401 only → session expired
+      if (response.status === 401) {
+        onUnauthorized?.()
+      }
+
       throw new ApiRequestError(
         error.message || `HTTP ${response.status}: ${response.statusText}`,
         response.status,
@@ -73,6 +103,11 @@ export async function fetchAPI<T = unknown>(
 
     return data as T
   } catch (error) {
+    // Let aborted requests bubble up so hooks can ignore them
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw error
+    }
+
     // Network errors (server down, no internet, etc.)
     if (error instanceof TypeError) {
       throw new ApiRequestError('Unable to connect to server. Please check your connection.')

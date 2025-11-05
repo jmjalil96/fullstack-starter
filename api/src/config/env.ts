@@ -20,8 +20,22 @@ const envSchema = z.object({
     .string()
     .default('http://localhost:5173,http://localhost:5174')
     .transform(val => val.split(',').map(origin => origin.trim())),
+  CLAIM_NUMBER_SALT: z.string().optional(),
   // Add more environment variables here as needed
 })
+.refine(
+  (data) => {
+    // Require CLAIM_NUMBER_SALT in production
+    if (data.NODE_ENV === 'production' && !data.CLAIM_NUMBER_SALT) {
+      return false
+    }
+    return true
+  },
+  {
+    message: 'CLAIM_NUMBER_SALT is required in production environment',
+    path: ['CLAIM_NUMBER_SALT'],
+  }
+)
 
 // Validate and parse environment variables
 const parseEnv = () => {

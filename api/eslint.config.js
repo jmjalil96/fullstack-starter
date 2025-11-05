@@ -6,7 +6,7 @@ import tseslint from 'typescript-eslint'
 export default tseslint.config(
   // Ignore patterns
   {
-    ignores: ['node_modules', 'dist', 'coverage', 'prisma/migrations'],
+    ignores: ['node_modules', 'dist', 'coverage', 'prisma/migrations', 'prisma/seed.ts'],
   },
 
   // Base configs

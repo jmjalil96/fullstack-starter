@@ -5,6 +5,7 @@ import { z } from 'zod'
 
 import { auth } from './config/auth.js'
 import { env } from './config/env.js'
+import newClaimRouter from './features/claims/new/newClaim.route.js'
 import { errorHandler } from './shared/errors/errorHandler.js'
 import { NotFoundError, UnauthorizedError } from './shared/errors/errors.js'
 import { asyncHandler } from './shared/middleware/asyncHandler.js'
@@ -12,6 +13,8 @@ import { requestLogger } from './shared/middleware/requestLogger.js'
 import { requireAuth } from './shared/middleware/requireAuth.js'
 import { applySecurityMiddleware } from './shared/middleware/security.js'
 import { validateRequest } from './shared/middleware/validation.js'
+
+// Feature routes
 
 const app = express()
 
@@ -34,7 +37,10 @@ app.all('/api/auth/*', toNodeHandler(auth))
 // 4. Security middleware - Helmet, Rate Limiting, Body Parsing (CORS already applied)
 applySecurityMiddleware(app)
 
-// 4. Routes
+// 5. Feature Routes
+app.use('/api', newClaimRouter)
+
+// 6. Health check
 app.get('/health', (_req: Request, res: Response) => {
   res.json({
     status: 'ok',

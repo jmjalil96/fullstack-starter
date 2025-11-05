@@ -10,18 +10,47 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Auth models (BetterAuth minimal setup)
+// ============================================================================
+// AUTH MODELS (BetterAuth)
+// ============================================================================
 
 model User {
-  id            String    @id @default(uuid())
-  email         String    @unique
-  emailVerified Boolean   @default(false)
+  id            String   @id @default(uuid())
+  email         String   @unique
+  emailVerified Boolean  @default(false)
   name          String?
   image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  sessions      Session[]
-  accounts      Account[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // BetterAuth relations
+  sessions Session[]
+  accounts Account[]
+
+  // Business logic additions
+  globalRoleId String?
+  globalRole   Role?   @relation(fields: [globalRoleId], references: [id])
+
+  clientAccess UserClient[]
+
+  // Activity relations
+  createdClaims     Claim[]           @relation("ClaimCreator")
+  createdTickets    Ticket[]          @relation("TicketCreator")
+  assignedTickets   Ticket[]          @relation("TicketAssignee")
+  ticketMessages    TicketMessage[]
+  uploadedDocuments Document[]
+  notifications     Notification[]
+  auditLogs         AuditLog[]
+  uploadedInvoices  Invoice[]
+  claimAttachments  ClaimAttachment[]
+  documentGrants    DocumentAccess[]
+
+  // Optional: Link to business entities
+  employee  Employee?
+  agent     Agent?
+  affiliate Affiliate?
+
+  @@index([globalRoleId])
 }
 
 model Account {
@@ -65,4 +94,587 @@ model Verification {
 
   @@unique([identifier, value])
   @@index([identifier])
+}
+
+// ============================================================================
+// RBAC (Role-Based Access Control)
+// ============================================================================
+
+model Role {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  description String?
+  isActive    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users User[]
+
+  @@index([name])
+  @@index([isActive])
+}
+
+model UserClient {
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@id([userId, clientId])
+  @@index([userId])
+  @@index([clientId])
+  @@index([isActive])
+}
+
+// ============================================================================
+// CORE BUSINESS ENTITIES
+// ============================================================================
+
+model Client {
+  id      String  @id @default(cuid())
+  name    String
+  taxId   String? @unique
+  email   String?
+  phone   String?
+  address String?
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userAccess     UserClient[]
+  policies       Policy[]
+  affiliates     Affiliate[]
+  claims         Claim[]
+  invoices       Invoice[]
+  tickets        Ticket[]
+  documentAccess DocumentAccess[]
+  auditLogs      AuditLog[]
+
+  @@index([name])
+  @@index([taxId])
+  @@index([isActive])
+}
+
+model Insurer {
+  id      String  @id @default(cuid())
+  name    String  @unique
+  code    String? @unique
+  email   String?
+  phone   String?
+  website String?
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  policies Policy[]
+  invoices Invoice[]
+
+  @@index([name])
+  @@index([code])
+  @@index([isActive])
+}
+
+model Policy {
+  id           String @id @default(cuid())
+  policyNumber String @unique
+
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id])
+
+  insurerId String
+  insurer   Insurer @relation(fields: [insurerId], references: [id])
+
+  type   String?
+  status PolicyStatus @default(ACTIVE)
+
+  startDate DateTime
+  endDate   DateTime
+
+  // Coverage & Copays
+  ambCopay  Float?
+  hospCopay Float?
+  maternity Float?
+
+  // Premium tiers
+  tPremium      Float?
+  tplus1Premium Float?
+  tplusfPremium Float?
+
+  // Costs
+  taxRate         Float?
+  additionalCosts Float?
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  affiliates PolicyAffiliate[]
+  claims     Claim[]
+  invoices   Invoice[]
+
+  @@index([policyNumber])
+  @@index([clientId])
+  @@index([insurerId])
+  @@index([status])
+  @@index([startDate, endDate])
+}
+
+model Affiliate {
+  id String @id @default(cuid())
+
+  firstName   String
+  lastName    String
+  email       String
+  phone       String?
+  dateOfBirth DateTime?
+
+  documentType   String?
+  documentNumber String?
+
+  affiliateType AffiliateType @default(OWNER)
+  coverageType  CoverageType?
+
+  primaryAffiliateId String?
+  primaryAffiliate   Affiliate?  @relation("AffiliateDependents", fields: [primaryAffiliateId], references: [id], onDelete: SetNull)
+  dependents         Affiliate[] @relation("AffiliateDependents")
+
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id])
+
+  userId String? @unique
+  user   User?   @relation(fields: [userId], references: [id])
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  policies          PolicyAffiliate[]
+  claimsAsAffiliate Claim[]           @relation("ClaimAffiliate")
+  claimsAsPatient   Claim[]           @relation("ClaimPatient")
+
+  @@index([clientId])
+  @@index([userId])
+  @@index([primaryAffiliateId])
+  @@index([documentNumber])
+  @@index([lastName, firstName])
+  @@index([isActive])
+  @@index([affiliateType])
+}
+
+model PolicyAffiliate {
+  policyId String
+  policy   Policy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+
+  affiliateId String
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+
+  addedAt DateTime @default(now())
+
+  @@id([policyId, affiliateId])
+  @@index([policyId])
+  @@index([affiliateId])
+}
+
+model Employee {
+  id String @id @default(cuid())
+
+  firstName String
+  lastName  String
+  email     String
+  phone     String?
+
+  position     String?
+  department   String?
+  employeeCode String? @unique
+
+  userId String? @unique
+  user   User?   @relation(fields: [userId], references: [id])
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([employeeCode])
+  @@index([lastName, firstName])
+  @@index([isActive])
+  @@index([department])
+}
+
+model Agent {
+  id String @id @default(cuid())
+
+  firstName String
+  lastName  String
+  email     String
+  phone     String?
+
+  agentCode String? @unique
+
+  userId String? @unique
+  user   User?   @relation(fields: [userId], references: [id])
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([agentCode])
+  @@index([lastName, firstName])
+  @@index([isActive])
+}
+
+model Claim {
+  id            String @id @default(cuid())
+  claimSequence Int    @default(autoincrement()) @unique
+  claimNumber   String @unique
+
+  policyId String?
+  policy   Policy? @relation(fields: [policyId], references: [id])
+
+  affiliateId String
+  affiliate   Affiliate @relation("ClaimAffiliate", fields: [affiliateId], references: [id])
+
+  patientId String
+  patient   Affiliate @relation("ClaimPatient", fields: [patientId], references: [id])
+
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id])
+
+  status         ClaimStatus @default(DRAFT)
+  type           String?
+  description    String?
+  amount         Float?
+  approvedAmount Float?
+
+  incidentDate  DateTime?
+  submittedDate DateTime?
+  resolvedDate  DateTime?
+
+  createdById String
+  createdBy   User   @relation("ClaimCreator", fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  attachments ClaimAttachment[]
+  tickets     Ticket[]
+
+  @@index([claimNumber])
+  @@index([policyId])
+  @@index([affiliateId])
+  @@index([patientId])
+  @@index([clientId])
+  @@index([status])
+  @@index([createdById])
+  @@index([submittedDate])
+}
+
+model Invoice {
+  id            String @id @default(cuid())
+  invoiceNumber String @unique
+
+  insurerId String
+  insurer   Insurer @relation(fields: [insurerId], references: [id])
+
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id])
+
+  policyId String?
+  policy   Policy? @relation(fields: [policyId], references: [id])
+
+  status        InvoiceStatus @default(PENDING)
+  billingPeriod String?
+
+  totalAmount Float
+  taxAmount   Float?
+
+  expectedAffiliateCount Int?
+  actualAffiliateCount   Int?
+  countMatches           Boolean?
+
+  expectedAmount Float?
+  amountMatches  Boolean?
+
+  discrepancyNotes String?
+
+  issueDate DateTime
+  dueDate   DateTime?
+  paidDate  DateTime?
+
+  uploadedById String?
+  uploadedBy   User?   @relation(fields: [uploadedById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([invoiceNumber])
+  @@index([insurerId])
+  @@index([clientId])
+  @@index([policyId])
+  @@index([status])
+  @@index([issueDate])
+  @@index([dueDate])
+}
+
+model Ticket {
+  id           String @id @default(cuid())
+  ticketNumber String @unique
+
+  subject  String
+  status   TicketStatus   @default(OPEN)
+  priority TicketPriority @default(NORMAL)
+  category String?
+
+  clientId String?
+  client   Client? @relation(fields: [clientId], references: [id])
+
+  relatedClaimId String?
+  relatedClaim   Claim?  @relation(fields: [relatedClaimId], references: [id])
+
+  createdById String
+  createdBy   User   @relation("TicketCreator", fields: [createdById], references: [id])
+
+  assignedToId String?
+  assignedTo   User?   @relation("TicketAssignee", fields: [assignedToId], references: [id])
+
+  closedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages TicketMessage[]
+
+  @@index([ticketNumber])
+  @@index([clientId])
+  @@index([relatedClaimId])
+  @@index([createdById])
+  @@index([assignedToId])
+  @@index([status])
+  @@index([priority])
+  @@index([category])
+}
+
+model TicketMessage {
+  id String @id @default(cuid())
+
+  message String
+
+  ticketId String
+  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ticketId])
+  @@index([authorId])
+  @@index([createdAt])
+}
+
+model Document {
+  id String @id @default(cuid())
+
+  title       String
+  description String?
+  category    String?
+
+  fileUrl  String
+  fileName String
+  fileSize Int?
+  mimeType String?
+
+  isPublic Boolean @default(false)
+  isActive Boolean @default(true)
+
+  uploadedById String
+  uploadedBy   User   @relation(fields: [uploadedById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clientAccess DocumentAccess[]
+
+  @@index([category])
+  @@index([isPublic])
+  @@index([isActive])
+  @@index([uploadedById])
+}
+
+model DocumentAccess {
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  grantedById String?
+  grantedBy   User?   @relation(fields: [grantedById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@id([documentId, clientId])
+  @@index([documentId])
+  @@index([clientId])
+}
+
+// ============================================================================
+// OPTIONAL TABLES
+// ============================================================================
+
+model ClaimAttachment {
+  id String @id @default(cuid())
+
+  fileUrl  String
+  fileName String
+  fileSize Int?
+  mimeType String?
+
+  description String?
+
+  claimId String
+  claim   Claim  @relation(fields: [claimId], references: [id], onDelete: Cascade)
+
+  uploadedById String
+  uploadedBy   User   @relation(fields: [uploadedById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([claimId])
+  @@index([uploadedById])
+}
+
+model AuditLog {
+  id String @id @default(cuid())
+
+  action       String
+  resourceType String
+  resourceId   String
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id])
+
+  clientId String?
+  client   Client? @relation(fields: [clientId], references: [id])
+
+  changes   Json?
+  metadata  Json?
+  ipAddress String?
+  userAgent String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([resourceType, resourceId])
+  @@index([action])
+  @@index([clientId])
+  @@index([createdAt])
+}
+
+model Notification {
+  id String @id @default(cuid())
+
+  title   String
+  message String
+  type    NotificationType @default(INFO)
+
+  templateId String?
+
+  resourceType String?
+  resourceId   String?
+  actionUrl    String?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  isRead Boolean   @default(false)
+  readAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@index([type])
+  @@index([templateId])
+  @@index([resourceType, resourceId])
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum PolicyStatus {
+  ACTIVE
+  PENDING
+  EXPIRED
+  CANCELLED
+}
+
+enum AffiliateType {
+  OWNER
+  DEPENDENT
+}
+
+enum CoverageType {
+  T
+  TPLUS1
+  TPLUSF
+}
+
+enum ClaimStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  PAID
+}
+
+enum InvoiceStatus {
+  PENDING
+  VALIDATED
+  DISCREPANCY
+  PAID
+  DISPUTED
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_ON_CLIENT
+  WAITING_ON_INSURER
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  ERROR
 }

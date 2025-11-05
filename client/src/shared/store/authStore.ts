@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
 
-import { ApiRequestError, fetchAPI } from '../../config/api'
+import { ApiRequestError, fetchAPI, registerUnauthorizedHandler } from '../../config/api'
 import type {
   ForgotPasswordRequest,
   ResetPasswordRequest,
@@ -332,3 +332,16 @@ export const useAuthStore = create<AuthStore>()(
     { name: 'AuthStore' } // DevTools name
   )
 )
+
+// Register global 401 handler
+// When any API call gets 401, clear auth state → ProtectedRoute will redirect
+registerUnauthorizedHandler(() => {
+  useAuthStore.setState({
+    user: null,
+    isAuthenticated: false,
+    isInitialized: true,
+    isLoading: false,
+    isAuthenticating: false,
+    error: null,
+  })
+})
