@@ -97,14 +97,24 @@ export function useCreateClaim(): UseCreateClaimReturn {
           throw err // Let global 401 interceptor + ProtectedRoute handle redirect/toast
         }
 
+        // Handle validation errors (400 with metadata.issues) - let form handle field mapping
+        if (
+          err instanceof ApiRequestError &&
+          err.statusCode === 400 &&
+          err.metadata?.issues
+        ) {
+          setLoading(false)
+          throw err // Let form map issues to fields, no toast/error state here
+        }
+
         let errorMessage = 'Error al crear reclamo. Intenta de nuevo.'
 
-        // Handle API errors with Spanish messages
+        // Handle other API errors with Spanish messages
         if (err instanceof ApiRequestError) {
           if (err.statusCode === 403) {
             errorMessage = 'No tienes permiso para crear reclamos'
           } else if (err.statusCode === 400) {
-            // Use backend validation error message
+            // Non-validation 400 errors
             errorMessage = err.message
           } else {
             // Use backend error message
@@ -118,8 +128,8 @@ export function useCreateClaim(): UseCreateClaimReturn {
         // Show error toast
         toast.error(errorMessage)
 
-        // Re-throw for component-level handling
-        throw new Error(errorMessage)
+        // Re-throw original error to preserve metadata
+        throw err
       }
     },
     [toast]

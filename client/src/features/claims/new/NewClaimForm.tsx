@@ -7,6 +7,7 @@ import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { useNavigate } from 'react-router-dom'
 
+import { ApiRequestError } from '../../../config/api'
 import { Button } from '../../../shared/components/ui/Button'
 import { useCreateClaim } from '../../../shared/hooks/claims'
 
@@ -64,15 +65,15 @@ export function NewClaimForm() {
   // Cascading reset: When clientId changes → clear affiliate and patient
   useEffect(() => {
     if (clientId) {
-      setValue('affiliateId', '', { shouldValidate: true })
-      setValue('patientId', '', { shouldValidate: true })
+      setValue('affiliateId', '', { shouldValidate: false })
+      setValue('patientId', '', { shouldValidate: false })
     }
   }, [clientId, setValue])
 
   // Cascading reset: When affiliateId changes → clear patient
   useEffect(() => {
     if (affiliateId) {
-      setValue('patientId', '', { shouldValidate: true })
+      setValue('patientId', '', { shouldValidate: false })
     }
   }, [affiliateId, setValue])
 
@@ -85,40 +86,24 @@ export function NewClaimForm() {
       // Success toast already shown by hook
       reset() // Clear form for next claim
     } catch (error) {
-      // Error toast already shown by hook for generic errors
-
       // Map backend validation errors to fields if available
-      if (error instanceof Error) {
-        const errorWithMetadata = error as Error & {
-          metadata?: {
-            issues?: Array<{ path: string; message: string }>
-          }
-        }
+      if (error instanceof ApiRequestError && error.metadata?.issues) {
+        const issues = error.metadata.issues as Array<{ path: string; message: string }>
 
-        if (errorWithMetadata.metadata?.issues) {
-          const issues = errorWithMetadata.metadata.issues
-
-          issues.forEach((issue) => {
-            const fieldName = issue.path as keyof ClaimFormData
-            setError(fieldName, {
-              type: 'server',
-              message: issue.message,
-            })
+        issues.forEach((issue) => {
+          const fieldName = issue.path as keyof ClaimFormData
+          setError(fieldName, {
+            type: 'server',
+            message: issue.message,
           })
+        })
 
-          // Focus first invalid field for quicker correction
-          const firstErrorField = issues[0]?.path as keyof ClaimFormData
-          if (firstErrorField) {
-            setFocus(firstErrorField)
-          }
-        } else {
-          // Non-field error, focus first existing error
-          const firstError = Object.keys(errors)[0] as keyof ClaimFormData
-          if (firstError) {
-            setFocus(firstError)
-          }
+        // Focus first invalid field for quicker correction
+        if (issues[0]) {
+          setFocus(issues[0].path as keyof ClaimFormData)
         }
       }
+      // Generic errors already toasted by hook, no additional handling needed
     }
   }
 

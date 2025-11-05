@@ -13,12 +13,19 @@ export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 export class ApiRequestError extends Error {
   statusCode?: number
   code?: string
+  metadata?: Record<string, unknown>
 
-  constructor(message: string, statusCode?: number, code?: string) {
+  constructor(
+    message: string,
+    statusCode?: number,
+    code?: string,
+    metadata?: Record<string, unknown>
+  ) {
     super(message)
     this.name = 'ApiRequestError'
     this.statusCode = statusCode
     this.code = code
+    this.metadata = metadata
   }
 }
 
@@ -95,9 +102,10 @@ export async function fetchAPI<T = unknown>(
       }
 
       throw new ApiRequestError(
-        error.message || `HTTP ${response.status}: ${response.statusText}`,
+        error.message || (data as { error?: string }).error || `HTTP ${response.status}: ${response.statusText}`,
         response.status,
-        error.code
+        error.code,
+        error.metadata
       )
     }
 
