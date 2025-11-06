@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { auth } from './config/auth.js'
 import { env } from './config/env.js'
 import newClaimRouter from './features/claims/new/newClaim.route.js'
+import viewClaimsRouter from './features/claims/views/viewClaims.route.js'
 import { errorHandler } from './shared/errors/errorHandler.js'
 import { NotFoundError, UnauthorizedError } from './shared/errors/errors.js'
 import { asyncHandler } from './shared/middleware/asyncHandler.js'
@@ -39,6 +40,7 @@ applySecurityMiddleware(app)
 
 // 5. Feature Routes
 app.use('/api', newClaimRouter)
+app.use('/api', viewClaimsRouter)
 
 // 6. Health check
 app.get('/health', (_req: Request, res: Response) => {

@@ -383,6 +383,7 @@ model Claim {
   @@index([status])
   @@index([createdById])
   @@index([submittedDate])
+  @@index([createdAt])
 }
 
 model Invoice {
