@@ -89,3 +89,74 @@ export interface CreateClaimResponse {
   createdAt: string // ISO date string
   updatedAt: string // ISO date string
 }
+
+/**
+ * Claim status enum values
+ * Mirrors backend: api/src/features/claims/views/viewClaims.dto.ts
+ */
+export type ClaimStatus = 'SUBMITTED' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED' | 'PAID'
+
+/**
+ * Single claim item in list view
+ * Lightweight summary with flat structure (no nested objects)
+ * Returned from GET /api/claims
+ * Mirrors backend: api/src/features/claims/views/viewClaims.dto.ts
+ */
+export interface ClaimListItemResponse {
+  // Core identification
+  id: string
+  claimNumber: string
+  status: ClaimStatus
+
+  // Client info (flat)
+  clientId: string
+  clientName: string
+
+  // Affiliate info (flat)
+  affiliateId: string
+  affiliateFirstName: string
+  affiliateLastName: string
+
+  // Patient info (flat)
+  patientId: string
+  patientFirstName: string
+  patientLastName: string
+
+  // Financial data (if available)
+  amount: number | null
+  approvedAmount: number | null
+
+  // Dates (ISO strings)
+  submittedDate: string | null
+  createdAt: string
+}
+
+/**
+ * Pagination metadata
+ * Returned from GET /api/claims
+ * Mirrors backend: api/src/features/claims/views/viewClaims.dto.ts
+ */
+export interface PaginationMetadata {
+  /** Total number of claims matching filters */
+  total: number
+  /** Current page number */
+  page: number
+  /** Items per page */
+  limit: number
+  /** Total number of pages */
+  totalPages: number
+  /** Whether there are more pages */
+  hasMore: boolean
+}
+
+/**
+ * Response from GET /api/claims
+ * Returns paginated list of claims with metadata
+ * Mirrors backend: api/src/features/claims/views/viewClaims.dto.ts
+ */
+export interface GetClaimsResponse {
+  /** Array of claim summaries */
+  claims: ClaimListItemResponse[]
+  /** Pagination metadata */
+  pagination: PaginationMetadata
+}

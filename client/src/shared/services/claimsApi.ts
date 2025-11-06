@@ -8,8 +8,10 @@ import type {
   AvailableAffiliateResponse,
   AvailableClientResponse,
   AvailablePatientResponse,
+  ClaimStatus,
   CreateClaimRequest,
   CreateClaimResponse,
+  GetClaimsResponse,
 } from '../types/claims'
 
 /**
@@ -104,4 +106,72 @@ export async function createClaim(data: CreateClaimRequest): Promise<CreateClaim
     method: 'POST',
     body: JSON.stringify(data),
   })
+}
+
+/**
+ * Get paginated list of claims with optional filters
+ *
+ * Returns claims based on user's role and permissions.
+ * Backend applies defaults: page=1, limit=20
+ *
+ * @param params - Optional query parameters for filtering and pagination
+ * @param options - Optional RequestInit options (e.g., signal for AbortController)
+ * @returns Paginated claims list with metadata
+ * @throws {ApiRequestError} If request fails
+ *
+ * @example
+ * // Get first page with defaults
+ * const response = await getClaims()
+ * // Returns: { claims: [...], pagination: { total, page: 1, limit: 20, ... } }
+ *
+ * @example
+ * // Filter by status
+ * const response = await getClaims({ status: 'SUBMITTED' })
+ *
+ * @example
+ * // With pagination
+ * const response = await getClaims({ page: 2, limit: 10 })
+ *
+ * @example
+ * // Search by claim number
+ * const response = await getClaims({ search: 'RECL_ABC123' })
+ *
+ * @example
+ * // With AbortController
+ * const controller = new AbortController()
+ * const response = await getClaims({ page: 1 }, { signal: controller.signal })
+ */
+export async function getClaims(
+  params?: {
+    status?: ClaimStatus
+    clientId?: string
+    search?: string
+    page?: number
+    limit?: number
+  },
+  options?: RequestInit
+): Promise<GetClaimsResponse> {
+  // Build query string from params
+  const searchParams = new URLSearchParams()
+
+  if (params?.status) {
+    searchParams.append('status', params.status)
+  }
+  if (params?.clientId) {
+    searchParams.append('clientId', params.clientId)
+  }
+  if (params?.search) {
+    searchParams.append('search', params.search)
+  }
+  if (params?.page !== undefined) {
+    searchParams.append('page', params.page.toString())
+  }
+  if (params?.limit !== undefined) {
+    searchParams.append('limit', params.limit.toString())
+  }
+
+  const queryString = searchParams.toString()
+  const endpoint = `/api/claims${queryString ? `?${queryString}` : ''}`
+
+  return fetchAPI<GetClaimsResponse>(endpoint, options)
 }

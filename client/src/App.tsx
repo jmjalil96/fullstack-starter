@@ -15,6 +15,7 @@ import { Login } from './pages/Login'
 import { Atencion } from './pages/reclamos/Atencion'
 import { MisReclamos } from './pages/reclamos/MisReclamos'
 import { NuevoReclamo } from './pages/reclamos/NuevoReclamo'
+import { ReclamoDetalle } from './pages/reclamos/ReclamoDetalle'
 import { ResetPassword } from './pages/ResetPassword'
 import { Signup } from './pages/Signup'
 import { ErrorBoundary } from './shared/components/ErrorBoundary'
@@ -53,6 +54,7 @@ function AppRoutes() {
           <Route path="reclamos/nuevo" element={<NuevoReclamo />} />
           <Route path="reclamos/mis-reclamos" element={<MisReclamos />} />
           <Route path="reclamos/atencion" element={<Atencion />} />
+          <Route path="reclamos/:id" element={<ReclamoDetalle />} />
 
           {/* Clientes */}
           <Route path="clientes/lista" element={<Clientes />} />
