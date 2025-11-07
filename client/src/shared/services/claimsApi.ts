@@ -8,7 +8,10 @@ import type {
   AvailableAffiliateResponse,
   AvailableClientResponse,
   AvailablePatientResponse,
+  AvailablePolicyResponse,
+  ClaimDetailResponse,
   ClaimStatus,
+  ClaimUpdateRequest,
   CreateClaimRequest,
   CreateClaimResponse,
   GetClaimsResponse,
@@ -174,4 +177,107 @@ export async function getClaims(
   const endpoint = `/api/claims${queryString ? `?${queryString}` : ''}`
 
   return fetchAPI<GetClaimsResponse>(endpoint, options)
+}
+
+/**
+ * Get complete claim detail by ID
+ *
+ * @param claimId - Claim ID to fetch
+ * @param options - Optional RequestInit options (e.g., signal for AbortController)
+ * @returns Complete claim with all fields and related entities
+ * @throws {ApiRequestError} If request fails
+ *
+ * @example
+ * const claim = await getClaimById('claim-123')
+ * // Returns: { id: '...', claimNumber: 'RECL_ABC123', status: 'SUBMITTED', ... }
+ *
+ * @example
+ * // With AbortController
+ * const controller = new AbortController()
+ * const claim = await getClaimById('claim-123', { signal: controller.signal })
+ */
+export async function getClaimById(
+  claimId: string,
+  options?: RequestInit
+): Promise<ClaimDetailResponse> {
+  return fetchAPI<ClaimDetailResponse>(`/api/claims/${claimId}`, options)
+}
+
+/**
+ * Update a claim with partial data
+ *
+ * Only sends fields that are defined (undefined values omitted).
+ * Null values are kept (used to clear optional fields).
+ *
+ * @param claimId - Claim ID to update
+ * @param updates - Partial claim updates (all fields optional)
+ * @param options - Optional RequestInit options (e.g., signal for AbortController)
+ * @returns Updated claim with all fields
+ * @throws {ApiRequestError} If request fails
+ *
+ * @example
+ * // Update single field
+ * const updated = await updateClaim('claim-123', { description: 'Updated description' })
+ *
+ * @example
+ * // Status transition
+ * const updated = await updateClaim('claim-123', { status: 'UNDER_REVIEW' })
+ *
+ * @example
+ * // Clear optional field
+ * const updated = await updateClaim('claim-123', { type: null })
+ *
+ * @example
+ * // With AbortController
+ * const controller = new AbortController()
+ * const updated = await updateClaim('claim-123', { amount: 100 }, { signal: controller.signal })
+ */
+export async function updateClaim(
+  claimId: string,
+  updates: ClaimUpdateRequest,
+  options?: RequestInit
+): Promise<ClaimDetailResponse> {
+  // Filter out undefined values (fields not changed)
+  // Keep null values (intentional field clearing)
+  const cleanedUpdates = Object.fromEntries(
+    Object.entries(updates).filter(([, v]) => v !== undefined)
+  )
+
+  return fetchAPI<ClaimDetailResponse>(`/api/claims/${claimId}`, {
+    method: 'PUT',
+    body: JSON.stringify(cleanedUpdates),
+    ...options,
+  })
+}
+
+/**
+ * Get policies available for assignment to a claim
+ *
+ * Returns policies where:
+ * - Policy belongs to claim's client
+ * - Claim's affiliate is covered under the policy (PolicyAffiliate join)
+ * - Policy is active and not expired
+ *
+ * @param claimId - Claim ID to get policies for
+ * @param options - Optional RequestInit options (e.g., signal for AbortController)
+ * @returns Array of available policies for dropdown selection
+ * @throws {ApiRequestError} If request fails
+ *
+ * @example
+ * const policies = await getAvailablePolicies('claim-123')
+ * // Returns: [{ id: '...', policyNumber: 'POL-ABC-001', type: 'Salud', insurerName: 'MAPFRE' }, ...]
+ *
+ * @example
+ * // With AbortController
+ * const controller = new AbortController()
+ * const policies = await getAvailablePolicies('claim-123', { signal: controller.signal })
+ */
+export async function getAvailablePolicies(
+  claimId: string,
+  options?: RequestInit
+): Promise<AvailablePolicyResponse[]> {
+  return fetchAPI<AvailablePolicyResponse[]>(
+    `/api/claims/${claimId}/available-policies`,
+    options
+  )
 }

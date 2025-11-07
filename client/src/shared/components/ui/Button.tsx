@@ -36,7 +36,7 @@ import { Spinner } from './Spinner'
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   /** Visual variant */
-  variant?: 'primary' | 'secondary' | 'danger' | 'ghost'
+  variant?: 'primary' | 'secondary' | 'success' | 'danger' | 'ghost'
   /** Size variant */
   size?: 'sm' | 'md' | 'lg'
   /** Show loading spinner and disable button */
@@ -61,6 +61,7 @@ export function Button({
   const variants = {
     primary: 'bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-hover)] focus:ring-[var(--color-gold)]',
     secondary: 'bg-white text-[var(--color-text-primary)] border border-[var(--color-border)] hover:bg-[var(--color-bg-secondary)] focus:ring-[var(--color-teal)]',
+    success: 'bg-green-600 text-white hover:bg-green-700 focus:ring-green-500',
     danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500',
     ghost: 'bg-transparent text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] focus:ring-[var(--color-teal)]',
   }
@@ -84,7 +85,7 @@ export function Button({
       {loading && (
         <Spinner
           size="sm"
-          color={variant === 'primary' ? 'white' : variant === 'danger' ? 'white' : 'primary'}
+          color={variant === 'primary' || variant === 'success' || variant === 'danger' ? 'white' : 'primary'}
           className="mr-2"
         />
       )}

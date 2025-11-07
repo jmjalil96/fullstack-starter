@@ -7,6 +7,7 @@ import { auth } from './config/auth.js'
 import { env } from './config/env.js'
 import claimEditRouter from './features/claims/edit/claimEdit.route.js'
 import newClaimRouter from './features/claims/new/newClaim.route.js'
+import availablePoliciesRouter from './features/claims/policies/availablePolicies.route.js'
 import viewClaimsRouter from './features/claims/views/viewClaims.route.js'
 import { errorHandler } from './shared/errors/errorHandler.js'
 import { NotFoundError, UnauthorizedError } from './shared/errors/errors.js'
@@ -43,6 +44,7 @@ applySecurityMiddleware(app)
 app.use('/api', newClaimRouter)
 app.use('/api', viewClaimsRouter)
 app.use('/api', claimEditRouter)
+app.use('/api', availablePoliciesRouter)
 
 // 6. Health check
 app.get('/health', (_req: Request, res: Response) => {

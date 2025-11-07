@@ -45,11 +45,6 @@ const statusConfig: Record<
     bgColor: 'bg-red-50',
     textColor: 'text-red-700',
   },
-  PAID: {
-    label: 'Pagado',
-    bgColor: 'bg-[var(--color-teal-50)]',
-    textColor: 'text-[var(--color-teal-700)]',
-  },
 }
 
 /**

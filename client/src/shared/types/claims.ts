@@ -35,6 +35,18 @@ export interface AvailablePatientResponse {
 }
 
 /**
+ * Available policy response (for picklist)
+ * Returned from GET /api/claims/:claimId/available-policies
+ * Mirrors backend: api/src/features/claims/policies/availablePolicies.dto.ts
+ */
+export interface AvailablePolicyResponse {
+  id: string
+  policyNumber: string
+  type: string | null
+  insurerName: string
+}
+
+/**
  * Create claim request body
  * Sent to POST /api/claims
  */
@@ -92,9 +104,10 @@ export interface CreateClaimResponse {
 
 /**
  * Claim status enum values
+ * Terminal states: APPROVED, REJECTED
  * Mirrors backend: api/src/features/claims/views/viewClaims.dto.ts
  */
-export type ClaimStatus = 'SUBMITTED' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED' | 'PAID'
+export type ClaimStatus = 'SUBMITTED' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED'
 
 /**
  * Single claim item in list view
@@ -159,4 +172,62 @@ export interface GetClaimsResponse {
   claims: ClaimListItemResponse[]
   /** Pagination metadata */
   pagination: PaginationMetadata
+}
+
+/**
+ * Complete claim detail with all fields
+ * Returned from GET /api/claims/:id
+ * Mirrors backend: api/src/features/claims/views/claimDetail.dto.ts
+ */
+export interface ClaimDetailResponse {
+  // Claim table - all fields
+  id: string
+  claimSequence: number
+  claimNumber: string
+  status: ClaimStatus
+  type: string | null
+  description: string | null
+  amount: number | null
+  approvedAmount: number | null
+  incidentDate: string | null
+  submittedDate: string | null
+  resolvedDate: string | null
+  createdAt: string
+  updatedAt: string
+
+  // Related entities - flat references (id + display name)
+  clientId: string
+  clientName: string
+  affiliateId: string
+  affiliateFirstName: string
+  affiliateLastName: string
+  patientId: string
+  patientFirstName: string
+  patientLastName: string
+  patientRelationship: 'self' | 'dependent'
+  policyId: string | null
+  policyNumber: string | null
+  createdById: string
+  createdByName: string | null
+}
+
+/**
+ * Request body for updating a claim
+ * Sent to PUT /api/claims/:id
+ * Mirrors backend: api/src/features/claims/edit/claimEdit.dto.ts
+ *
+ * All fields optional (partial update).
+ * Null values clear fields.
+ * Only send changed fields (omit undefined).
+ */
+export interface ClaimUpdateRequest {
+  description?: string | null
+  amount?: number | null
+  approvedAmount?: number | null
+  policyId?: string | null
+  incidentDate?: string // ISO 8601 date string
+  submittedDate?: string // ISO 8601 date string
+  resolvedDate?: string // ISO 8601 date string
+  type?: string | null
+  status?: ClaimStatus
 }
