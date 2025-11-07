@@ -37,7 +37,7 @@ export interface CreateClaimResponse {
   id: string
   claimNumber: string
   status: string
-  description: string
+  description: string | null
 
   // Client info
   clientId: string
@@ -69,7 +69,7 @@ export interface CreateClaimResponse {
 
   // Metadata
   createdById: string
-  submittedDate: Date | null
-  createdAt: Date
-  updatedAt: Date
+  submittedDate: string | null // ISO date string
+  createdAt: string            // ISO date string
+  updatedAt: string            // ISO date string
 }

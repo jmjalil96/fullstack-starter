@@ -356,7 +356,7 @@ model Claim {
   clientId String
   client   Client @relation(fields: [clientId], references: [id])
 
-  status         ClaimStatus @default(DRAFT)
+  status         ClaimStatus @default(SUBMITTED)
   type           String?
   description    String?
   amount         Float?
@@ -641,12 +641,10 @@ enum CoverageType {
 }
 
 enum ClaimStatus {
-  DRAFT
   SUBMITTED
   UNDER_REVIEW
   APPROVED
   REJECTED
-  PAID
 }
 
 enum InvoiceStatus {

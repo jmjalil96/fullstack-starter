@@ -4,8 +4,9 @@
 
 /**
  * Claim status enum values
+ * Terminal states: APPROVED, REJECTED
  */
-export type ClaimStatus = 'SUBMITTED' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED' | 'PAID'
+export type ClaimStatus = 'SUBMITTED' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED'
 
 /**
  * Single claim item in list view

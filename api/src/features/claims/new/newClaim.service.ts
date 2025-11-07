@@ -206,8 +206,15 @@ export async function createClaim(
   // Log successful creation
   logger.info({ claimId: claim.id, claimNumber: claim.claimNumber, userId }, 'Claim created successfully')
 
-  // STEP 11: Return Response
-  return claim as CreateClaimResponse
+  // STEP 11: Transform to DTO and Return Response
+  const response: CreateClaimResponse = {
+    ...claim,
+    submittedDate: claim.submittedDate?.toISOString() ?? null,
+    createdAt: claim.createdAt.toISOString(),
+    updatedAt: claim.updatedAt.toISOString(),
+  }
+
+  return response
 }
 
 /**

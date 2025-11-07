@@ -21,7 +21,7 @@ export const getClaimsQuerySchema = z
   .object({
     /** Filter by claim status */
     status: z
-      .enum(['SUBMITTED', 'UNDER_REVIEW', 'APPROVED', 'REJECTED', 'PAID'], {
+      .enum(['SUBMITTED', 'UNDER_REVIEW', 'APPROVED', 'REJECTED'], {
         message: 'Estado inválido',
       })
       .optional(),

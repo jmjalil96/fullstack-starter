@@ -5,6 +5,7 @@ import { z } from 'zod'
 
 import { auth } from './config/auth.js'
 import { env } from './config/env.js'
+import claimEditRouter from './features/claims/edit/claimEdit.route.js'
 import newClaimRouter from './features/claims/new/newClaim.route.js'
 import viewClaimsRouter from './features/claims/views/viewClaims.route.js'
 import { errorHandler } from './shared/errors/errorHandler.js'
@@ -41,6 +42,7 @@ applySecurityMiddleware(app)
 // 5. Feature Routes
 app.use('/api', newClaimRouter)
 app.use('/api', viewClaimsRouter)
+app.use('/api', claimEditRouter)
 
 // 6. Health check
 app.get('/health', (_req: Request, res: Response) => {

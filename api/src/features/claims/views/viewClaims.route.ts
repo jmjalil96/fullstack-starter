@@ -9,6 +9,8 @@ import { asyncHandler } from '../../../shared/middleware/asyncHandler.js'
 // import { requireAuth } from '../../../shared/middleware/requireAuth.js'
 import { validateRequest } from '../../../shared/middleware/validation.js'
 
+import { claimIdParamSchema, type ClaimIdParam } from './claimDetail.schema.js'
+import { getClaimById } from './claimDetail.service.js'
 import { getClaimsQuerySchema, type GetClaimsQuery } from './viewClaims.schema.js'
 import { getClaims } from './viewClaims.service.js'
 
@@ -46,6 +48,34 @@ router.get(
     const response = await getClaims(userId, query)
 
     res.status(200).json(response)
+  })
+)
+
+/**
+ * GET /api/claims/:id
+ * Get complete claim detail by ID with role-based authorization
+ *
+ * Returns detailed claim information based on role:
+ * - AFFILIATE: Only their claims
+ * - CLIENT_ADMIN: Claims from accessible clients
+ * - BROKER EMPLOYEES: Any claim
+ *
+ * Security: Returns 404 if claim not found OR user lacks access
+ */
+router.get(
+  '/claims/:id',
+  // TODO: UNCOMMENT BEFORE PRODUCTION!
+  // requireAuth,
+  validateRequest({ params: claimIdParamSchema }),
+  asyncHandler(async (req, res) => {
+    // TODO: REMOVE MOCK - Use req.user.id when requireAuth is enabled
+    const userId = 'YYAICSs5cRQL1kl2syJSmzepmhWDVZ8g' // SUPER_ADMIN for testing
+
+    const { id } = req.params as ClaimIdParam
+
+    const claim = await getClaimById(userId, id)
+
+    res.status(200).json(claim)
   })
 )
 

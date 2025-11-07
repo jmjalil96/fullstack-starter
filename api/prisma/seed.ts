@@ -920,78 +920,6 @@ async function main() {
 
   console.log('✓ Created 2 agents')
 
-  // =========================================================================
-  // 13. CREATE SAMPLE CLAIMS (Using sequence-based claim numbers)
-  // =========================================================================
-
-  // Import claim number generator
-  const { generateClaimNumber } = await import('../src/features/claims/shared/claimNumber.utils.js')
-
-  // Create 3 sample claims
-  const sampleClaims = []
-
-  // Claim 1: Juan Pérez (self-claim)
-  const seq1Result = await prisma.$queryRaw<[{ nextval: bigint }]>`
-    SELECT nextval(pg_get_serial_sequence('"Claim"', 'claimSequence'))
-  `
-  const seq1 = Number(seq1Result[0].nextval)
-  const claim1 = await prisma.claim.create({
-    data: {
-      claimSequence: seq1,
-      claimNumber: generateClaimNumber(seq1),
-      clientId: clients[0].id,
-      affiliateId: techOwner1.id,
-      patientId: techOwner1.id, // Self-claim
-      description: 'Consulta médica general - chequeo preventivo',
-      createdById: affiliateUsers[0].id,
-      status: 'SUBMITTED',
-    },
-  })
-  sampleClaims.push(claim1)
-
-  // Claim 2: Juan Pérez for dependent Sofia
-  const seq2Result = await prisma.$queryRaw<[{ nextval: bigint }]>`
-    SELECT nextval(pg_get_serial_sequence('"Claim"', 'claimSequence'))
-  `
-  const seq2 = Number(seq2Result[0].nextval)
-  const claim2 = await prisma.claim.create({
-    data: {
-      claimSequence: seq2,
-      claimNumber: generateClaimNumber(seq2),
-      clientId: clients[0].id,
-      affiliateId: techOwner1.id,
-      patientId: techDependent1.id, // Dependent claim
-      description: 'Consulta pediátrica - control de niño sano',
-      createdById: affiliateUsers[0].id,
-      status: 'UNDER_REVIEW',
-    },
-  })
-  sampleClaims.push(claim2)
-
-  // Claim 3: Elena Vargas (self-claim)
-  const seq3Result = await prisma.$queryRaw<[{ nextval: bigint }]>`
-    SELECT nextval(pg_get_serial_sequence('"Claim"', 'claimSequence'))
-  `
-  const seq3 = Number(seq3Result[0].nextval)
-  const claim3 = await prisma.claim.create({
-    data: {
-      claimSequence: seq3,
-      claimNumber: generateClaimNumber(seq3),
-      clientId: clients[3].id,
-      affiliateId: deltaOwner1.id,
-      patientId: deltaOwner1.id, // Self-claim
-      description: 'Análisis de laboratorio - exámenes de rutina',
-      createdById: affiliateUsers[1].id,
-      status: 'APPROVED',
-    },
-  })
-  sampleClaims.push(claim3)
-
-  console.log('✓ Created 3 sample claims with sequence-based claim numbers')
-  console.log(`  - ${claim1.claimNumber} (SUBMITTED)`)
-  console.log(`  - ${claim2.claimNumber} (UNDER_REVIEW)`)
-  console.log(`  - ${claim3.claimNumber} (APPROVED)`)
-
   console.log('\n🎉 Seed completed successfully!')
   console.log('\n📊 Summary:')
   console.log('  - 7 Roles')
@@ -1003,7 +931,6 @@ async function main() {
   console.log('  - 19 PolicyAffiliate links')
   console.log('  - 2 Employees')
   console.log('  - 2 Agents')
-  console.log('  - 3 Sample Claims (with sequence-based claim numbers)')
 }
 
 main()
