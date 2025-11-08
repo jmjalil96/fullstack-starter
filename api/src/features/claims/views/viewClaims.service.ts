@@ -200,7 +200,7 @@ export async function getClaims(
     patientLastName: claim.patient.lastName,
     amount: claim.amount,
     approvedAmount: claim.approvedAmount,
-    submittedDate: claim.submittedDate?.toISOString() ?? null,
+    submittedDate: claim.submittedDate?.toISOString().split('T')[0] ?? null,
     createdAt: claim.createdAt.toISOString(),
   }))
 

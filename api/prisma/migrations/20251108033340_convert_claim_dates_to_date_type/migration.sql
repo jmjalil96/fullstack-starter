@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "Claim" ALTER COLUMN "incidentDate" SET DATA TYPE DATE,
+ALTER COLUMN "submittedDate" SET DATA TYPE DATE,
+ALTER COLUMN "resolvedDate" SET DATA TYPE DATE;

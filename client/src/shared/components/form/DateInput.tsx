@@ -17,13 +17,13 @@ export interface DateInputProps extends InputHTMLAttributes<HTMLInputElement> {
 }
 
 /**
- * DateInput - Text input for ISO 8601 date format
+ * DateInput - Native date input with calendar picker
  *
  * Features:
- * - Text input (not native date picker) for consistent UX
+ * - Native browser date picker (calendar popup)
  * - ISO 8601 format: YYYY-MM-DD
- * - Browser pattern validation (HTML5)
- * - Zod schema validation (react-hook-form)
+ * - Browser handles validation and formatting
+ * - Mobile gets optimized native picker
  * - Error message display
  * - Helper text support
  * - Full accessibility (aria attributes)
@@ -34,7 +34,6 @@ export interface DateInputProps extends InputHTMLAttributes<HTMLInputElement> {
  *   label="Fecha del Incidente"
  *   value={incidentDate}
  *   onChange={(e) => setIncidentDate(e.target.value)}
- *   helperText="Formato: YYYY-MM-DD"
  * />
  *
  * @example
@@ -46,7 +45,6 @@ export interface DateInputProps extends InputHTMLAttributes<HTMLInputElement> {
  *     <DateInput
  *       label="Fecha del Incidente"
  *       error={fieldState.error?.message}
- *       helperText="Formato: YYYY-MM-DD"
  *       {...field}
  *     />
  *   )}
@@ -58,7 +56,7 @@ export interface DateInputProps extends InputHTMLAttributes<HTMLInputElement> {
  *   label="Fecha de Envío"
  *   value={value}
  *   onChange={onChange}
- *   error="Formato de fecha inválido (use YYYY-MM-DD)"
+ *   error="Formato de fecha inválido"
  * />
  */
 export function DateInput({ label, error, helperText, className = '', ...inputProps }: DateInputProps) {
@@ -79,15 +77,11 @@ export function DateInput({ label, error, helperText, className = '', ...inputPr
         {label}
       </label>
 
-      {/* Input - text type for ISO date format */}
+      {/* Input - native date type with calendar picker */}
       <input
         {...inputProps}
         id={inputId}
-        type="text"
-        placeholder="YYYY-MM-DD"
-        pattern="[0-9]{4}-[0-9]{2}-[0-9]{2}"
-        inputMode="numeric"
-        autoComplete="off"
+        type="date"
         className={`w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:ring-2 focus:ring-[var(--color-teal)] focus:border-transparent transition-colors disabled:bg-[var(--color-bg-secondary)] disabled:cursor-not-allowed ${className}`}
         aria-invalid={!!error}
         aria-describedby={ariaDescribedBy}

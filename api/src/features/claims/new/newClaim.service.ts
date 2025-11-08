@@ -209,7 +209,7 @@ export async function createClaim(
   // STEP 11: Transform to DTO and Return Response
   const response: CreateClaimResponse = {
     ...claim,
-    submittedDate: claim.submittedDate?.toISOString() ?? null,
+    submittedDate: claim.submittedDate?.toISOString().split('T')[0] ?? null,
     createdAt: claim.createdAt.toISOString(),
     updatedAt: claim.updatedAt.toISOString(),
   }

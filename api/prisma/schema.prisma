@@ -362,9 +362,9 @@ model Claim {
   amount         Float?
   approvedAmount Float?
 
-  incidentDate  DateTime?
-  submittedDate DateTime?
-  resolvedDate  DateTime?
+  incidentDate  DateTime? @db.Date
+  submittedDate DateTime? @db.Date
+  resolvedDate  DateTime? @db.Date
 
   createdById String
   createdBy   User   @relation("ClaimCreator", fields: [createdById], references: [id])

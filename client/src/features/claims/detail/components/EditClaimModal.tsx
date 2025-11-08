@@ -172,10 +172,22 @@ export function EditClaimModal({ isOpen, onClose, claim, onSuccess }: EditClaimM
 
   /**
    * Handle final confirmation - submit to API
+   * Only sends dirty (changed) fields to avoid sending locked fields
    */
   const handleConfirmSave = async () => {
-    const normalized = normalizeValues(getValues())
-    await updateClaim(claim.id, normalized)
+    const allValues = getValues()
+    const normalized = normalizeValues(allValues)
+
+    // Only send dirty fields (what user actually changed)
+    const dirtyOnly: Record<string, unknown> = {}
+    Object.keys(dirtyFields).forEach((key) => {
+      const typedKey = key as keyof ClaimUpdateFormData
+      if (normalized[typedKey] !== undefined) {
+        dirtyOnly[key] = normalized[typedKey]
+      }
+    })
+
+    await updateClaim(claim.id, dirtyOnly)
   }
 
   /**
@@ -278,7 +290,6 @@ export function EditClaimModal({ isOpen, onClose, claim, onSuccess }: EditClaimM
                           <DateInput
                             label="Fecha del Incidente"
                             error={fieldState.error?.message}
-                            helperText="Formato: YYYY-MM-DD"
                             {...field}
                             value={field.value ?? ''}
                           />
@@ -301,7 +312,6 @@ export function EditClaimModal({ isOpen, onClose, claim, onSuccess }: EditClaimM
                           <DateInput
                             label="Fecha de Envío"
                             error={fieldState.error?.message}
-                            helperText="Formato: YYYY-MM-DD"
                             {...field}
                             value={field.value ?? ''}
                           />
@@ -324,7 +334,6 @@ export function EditClaimModal({ isOpen, onClose, claim, onSuccess }: EditClaimM
                           <DateInput
                             label="Fecha de Resolución"
                             error={fieldState.error?.message}
-                            helperText="Formato: YYYY-MM-DD"
                             {...field}
                             value={field.value ?? ''}
                           />

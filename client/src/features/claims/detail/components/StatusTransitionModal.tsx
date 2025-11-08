@@ -96,42 +96,57 @@ export function StatusTransitionModal({
 
       {/* Panel Container */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <Dialog.Panel className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-          {/* Header */}
-          <Dialog.Title className="text-xl font-bold text-[var(--color-navy)] mb-4">
-            ¿Cambiar estado a {CLAIM_LIFECYCLE[targetStatus].label.toUpperCase()}?
+        <Dialog.Panel className="bg-white rounded-lg shadow-xl max-w-3xl w-full p-6">
+          {/* Header with Icon */}
+          <Dialog.Title className="text-xl font-bold text-[var(--color-navy)] mb-3">
+            {transition?.icon} ¿Cambiar estado a {CLAIM_LIFECYCLE[targetStatus].label.toUpperCase()}?
           </Dialog.Title>
 
-          {/* Requirements Checklist */}
-          <div className="mb-6">
-            <p className="text-sm font-medium text-[var(--color-text-primary)] mb-3">Requisitos:</p>
-            <ul className="space-y-2 text-sm">
+          {/* Context Box */}
+          <div className="bg-gray-50 border border-gray-200 rounded p-3 mb-4">
+            <p className="text-sm text-gray-700">
+              Requisitos ({requirements.filter((f) => isFieldPresent(claim[f as keyof ClaimDetailResponse])).length} de{' '}
+              {requirements.length} completados)
+            </p>
+          </div>
+
+          {/* Requirements as 2-Column Grid */}
+          <div className="mb-4">
+            <div className="grid md:grid-cols-2 gap-3">
               {requirements.map((field) => {
                 const value = claim[field as keyof ClaimDetailResponse]
                 const isMet = isFieldPresent(value)
 
                 return (
-                  <li key={field} className={isMet ? 'text-green-600' : 'text-red-600'}>
-                    <span className="font-medium">{isMet ? '✓' : '✗'}</span>{' '}
-                    {FIELD_LABELS[field as keyof typeof FIELD_LABELS]}
-                    {isMet && value && (
-                      <span className="ml-2 text-gray-600">: {formatValue(value)}</span>
-                    )}
-                  </li>
+                  <div
+                    key={field}
+                    className={`border rounded p-2.5 ${
+                      isMet ? 'border-green-300 bg-green-50' : 'border-red-300 bg-red-50'
+                    }`}
+                  >
+                    <div className="text-xs font-medium text-gray-600 mb-0.5">
+                      {FIELD_LABELS[field as keyof typeof FIELD_LABELS]}
+                    </div>
+                    <div className={`text-sm ${isMet ? 'text-green-700 font-medium' : 'text-red-600'}`}>
+                      {isMet ? `✓ ${formatValue(value)}` : '✗ Sin completar'}
+                    </div>
+                  </div>
                 )
               })}
-            </ul>
-
-            {/* Warning if requirements not met */}
-            {!allRequirementsMet && (
-              <p className="mt-3 text-sm text-red-600 italic">
-                Complete los campos faltantes antes de continuar
-              </p>
-            )}
+            </div>
           </div>
 
+          {/* Status Banner if Requirements Not Met */}
+          {!allRequirementsMet && (
+            <div className="bg-yellow-50 border border-yellow-300 rounded p-3 mb-4">
+              <p className="text-sm text-yellow-800 font-medium">
+                ⚠️ Faltan {requirements.length - requirements.filter((f) => isFieldPresent(claim[f as keyof ClaimDetailResponse])).length} campos para continuar
+              </p>
+            </div>
+          )}
+
           {/* Actions */}
-          <div className="flex gap-3">
+          <div className="flex gap-4 pt-4 border-t border-gray-200">
             <Button
               variant={transition?.variant ?? 'primary'}
               onClick={onConfirm}
@@ -139,7 +154,7 @@ export function StatusTransitionModal({
               loading={loading}
               className="flex-1"
             >
-              Confirmar {transition?.label ?? 'Cambio'}
+              {allRequirementsMet ? `Confirmar ${transition?.label ?? 'Cambio'}` : 'Complete los campos faltantes'}
             </Button>
             <Button variant="secondary" onClick={onClose} disabled={loading} className="flex-1">
               Cancelar

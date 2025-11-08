@@ -98,38 +98,39 @@ export function EditConfirmationModal({
 
       {/* Panel Container */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <Dialog.Panel className="bg-white rounded-lg shadow-xl max-w-lg w-full p-6">
+        <Dialog.Panel className="bg-white rounded-lg shadow-xl max-w-3xl w-full p-6">
           {/* Header */}
-          <Dialog.Title className="text-xl font-bold text-[var(--color-navy)] mb-4">
+          <Dialog.Title className="text-xl font-bold text-[var(--color-navy)] mb-3">
             ¿Confirmar cambios?
           </Dialog.Title>
 
-          {/* Changes Diff */}
-          <div className="mb-6">
-            <p className="text-sm font-medium text-[var(--color-text-primary)] mb-3">
-              Campos modificados:
+          {/* Context Box */}
+          <div className="bg-gray-50 border border-gray-200 rounded p-3 mb-4">
+            <p className="text-sm text-gray-700">
+              {hasChanges ? `${changes.length} campos modificados` : 'No hay cambios para guardar'}
             </p>
-
-            {hasChanges ? (
-              <ul className="space-y-2 text-sm">
-                {changes.map((change) => (
-                  <li key={change.field}>
-                    <strong>{change.label}:</strong>{' '}
-                    <span className="text-gray-600">{formatValue(change.oldValue)}</span>
-                    <span className="mx-1">→</span>
-                    <span className="text-[var(--color-teal)] font-medium">
-                      {formatValue(change.newValue)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-[var(--color-text-secondary)] italic">No hay cambios.</p>
-            )}
           </div>
 
+          {/* Changes as Field Cards in 2-Column Grid */}
+          {hasChanges ? (
+            <div className="grid md:grid-cols-2 gap-3 mb-4">
+              {changes.map((change) => (
+                <div key={change.field} className="border border-blue-200 bg-blue-50 rounded p-2.5">
+                  <div className="text-xs font-medium text-gray-600 mb-1">{change.label}</div>
+                  <div className="text-sm text-gray-600">{formatValue(change.oldValue)}</div>
+                  <div className="text-center text-gray-400 text-xs my-0.5">↓</div>
+                  <div className="text-sm text-teal-700 font-medium">{formatValue(change.newValue)}</div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-gray-50 border border-gray-200 rounded p-4 mb-4">
+              <p className="text-sm text-gray-600 text-center italic">No hay cambios para guardar</p>
+            </div>
+          )}
+
           {/* Actions */}
-          <div className="flex gap-3">
+          <div className="flex gap-4 pt-4 border-t border-gray-200">
             <Button
               variant="primary"
               onClick={onConfirm}
