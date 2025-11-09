@@ -266,7 +266,7 @@ export function EditClaimModal({ isOpen, onClose, claim, onSuccess }: EditClaimM
                                 id={inputId}
                                 type="text"
                                 placeholder="Ej: Consulta médica, Emergencia"
-                                className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:ring-2 focus:ring-[var(--color-teal)] focus:border-transparent transition-colors"
+                                className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:ring-2 focus:ring-[var(--color-teal)] focus:border-transparent transition-colors placeholder:text-gray-400"
                                 {...field}
                                 value={field.value ?? ''}
                               />
@@ -374,7 +374,7 @@ export function EditClaimModal({ isOpen, onClose, claim, onSuccess }: EditClaimM
                                 step="0.01"
                                 min="0"
                                 placeholder="0.00"
-                                className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:ring-2 focus:ring-[var(--color-teal)] focus:border-transparent transition-colors"
+                                className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:ring-2 focus:ring-[var(--color-teal)] focus:border-transparent transition-colors placeholder:text-gray-400"
                                 {...field}
                                 value={field.value ?? ''}
                                 onChange={(e) =>
@@ -414,7 +414,7 @@ export function EditClaimModal({ isOpen, onClose, claim, onSuccess }: EditClaimM
                                 step="0.01"
                                 min="0"
                                 placeholder="0.00"
-                                className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:ring-2 focus:ring-[var(--color-teal)] focus:border-transparent transition-colors"
+                                className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:ring-2 focus:ring-[var(--color-teal)] focus:border-transparent transition-colors placeholder:text-gray-400"
                                 {...field}
                                 value={field.value ?? ''}
                                 onChange={(e) =>

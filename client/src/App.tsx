@@ -6,8 +6,10 @@ import { CasosAbiertos } from './pages/casos/CasosAbiertos'
 import { MisCasos } from './pages/casos/MisCasos'
 import { NuevoCaso } from './pages/casos/NuevoCaso'
 import { Afiliados } from './pages/clientes/Afiliados'
+import { ClienteDetalle } from './pages/clientes/ClienteDetalle'
 import { Clientes } from './pages/clientes/Clientes'
 import { Polizas } from './pages/clientes/Polizas'
+import { ComponentTest } from './pages/ComponentTest'
 import { Dashboard } from './pages/Dashboard'
 import { ForgotPassword } from './pages/ForgotPassword'
 import { Home } from './pages/Home'
@@ -37,6 +39,7 @@ function AppRoutes() {
         <Route path="/signup" element={<Signup />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/test" element={<ComponentTest />} />
 
         {/* Protected Routes with MainLayout */}
         <Route
@@ -58,6 +61,7 @@ function AppRoutes() {
 
           {/* Clientes */}
           <Route path="clientes/lista" element={<Clientes />} />
+          <Route path="clientes/:id" element={<ClienteDetalle />} />
           <Route path="clientes/polizas" element={<Polizas />} />
           <Route path="clientes/afiliados" element={<Afiliados />} />
 
