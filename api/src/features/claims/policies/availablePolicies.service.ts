@@ -13,13 +13,13 @@
 // ============================================================================
 
 import { db } from '../../../config/database.js'
+import { ALL_AUTHORIZED_ROLES } from '../../../shared/constants/roles.js'
 import {
   ForbiddenError,
   NotFoundError,
   UnauthorizedError,
 } from '../../../shared/errors/errors.js'
 import { logger } from '../../../shared/middleware/logger.js'
-import { ALL_CLAIM_ROLES } from '../shared/claimRoles.constants.js'
 
 import type { AvailablePolicyResponse } from './availablePolicies.dto.js'
 
@@ -78,7 +78,7 @@ export async function getAvailablePolicies(
   // Use constants to prevent role list duplication
   const roleName = user.globalRole?.name
 
-  if (!roleName || !ALL_CLAIM_ROLES.includes(roleName as never)) {
+  if (!roleName || !ALL_AUTHORIZED_ROLES.includes(roleName as never)) {
     logger.warn({ userId, role: roleName }, 'Unauthorized available policies access attempt')
     throw new ForbiddenError('No tienes permiso para ver pólizas')
   }

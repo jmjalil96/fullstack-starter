@@ -14,7 +14,7 @@
  * - Frontend (UI state/permissions)
  */
 
-import { SENIOR_CLAIM_MANAGERS, SUPER_ADMIN_ONLY } from './claimRoles.constants.js'
+import { SENIOR_CLAIM_MANAGERS, SUPER_ADMIN_ONLY } from '../../../shared/constants/roles.js'
 
 /**
  * Lifecycle rules for each claim status

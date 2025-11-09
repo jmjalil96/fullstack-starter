@@ -8,6 +8,7 @@
 // ============================================================================
 
 import { db } from '../../../config/database.js'
+import { ALL_AUTHORIZED_ROLES, BROKER_EMPLOYEES } from '../../../shared/constants/roles.js'
 import {
   BadRequestError,
   ForbiddenError,
@@ -61,16 +62,8 @@ export async function createClaim(
 
   // STEP 2: Role Authorization Check
   const roleName = user.globalRole?.name
-  const allowedRoles = [
-    'SUPER_ADMIN',
-    'CLAIMS_EMPLOYEE',
-    'OPERATIONS_EMPLOYEE',
-    'ADMIN_EMPLOYEE',
-    'CLIENT_ADMIN',
-    'AFFILIATE',
-  ]
 
-  if (!roleName || !allowedRoles.includes(roleName)) {
+  if (!roleName || !ALL_AUTHORIZED_ROLES.includes(roleName as never)) {
     logger.warn({ userId, role: roleName }, 'Unauthorized claim creation attempt')
     throw new ForbiddenError('No tienes permiso para crear reclamos')
   }
@@ -233,27 +226,14 @@ export async function getAvailableClients(userId: string): Promise<AvailableClie
 
   // STEP 2: Role Authorization Check
   const roleName = user.globalRole?.name
-  const allowedRoles = [
-    'SUPER_ADMIN',
-    'CLAIMS_EMPLOYEE',
-    'OPERATIONS_EMPLOYEE',
-    'ADMIN_EMPLOYEE',
-    'CLIENT_ADMIN',
-    'AFFILIATE',
-  ]
 
-  if (!roleName || !allowedRoles.includes(roleName)) {
+  if (!roleName || !ALL_AUTHORIZED_ROLES.includes(roleName as never)) {
     logger.warn({ userId, role: roleName }, 'Unauthorized client list access attempt')
     throw new ForbiddenError('No tienes permiso para ver clientes')
   }
 
   // STEP 3: Determine Scope and Query Clients
-  const isBrokerEmployee = [
-    'SUPER_ADMIN',
-    'CLAIMS_EMPLOYEE',
-    'OPERATIONS_EMPLOYEE',
-    'ADMIN_EMPLOYEE',
-  ].includes(roleName)
+  const isBrokerEmployee = BROKER_EMPLOYEES.includes(roleName as never)
   const isClientAdmin = roleName === 'CLIENT_ADMIN'
   const isAffiliate = roleName === 'AFFILIATE'
 
@@ -327,16 +307,8 @@ export async function getAvailableAffiliates(
 
   // STEP 2: Role Authorization Check
   const roleName = user.globalRole?.name
-  const allowedRoles = [
-    'SUPER_ADMIN',
-    'CLAIMS_EMPLOYEE',
-    'OPERATIONS_EMPLOYEE',
-    'ADMIN_EMPLOYEE',
-    'CLIENT_ADMIN',
-    'AFFILIATE',
-  ]
 
-  if (!roleName || !allowedRoles.includes(roleName)) {
+  if (!roleName || !ALL_AUTHORIZED_ROLES.includes(roleName as never)) {
     logger.warn({ userId, role: roleName }, 'Unauthorized affiliate list access attempt')
     throw new ForbiddenError('No tienes permiso para ver afiliados')
   }
@@ -414,16 +386,8 @@ export async function getAvailablePatients(
 
   // STEP 2: Role Authorization Check
   const roleName = user.globalRole?.name
-  const allowedRoles = [
-    'SUPER_ADMIN',
-    'CLAIMS_EMPLOYEE',
-    'OPERATIONS_EMPLOYEE',
-    'ADMIN_EMPLOYEE',
-    'CLIENT_ADMIN',
-    'AFFILIATE',
-  ]
 
-  if (!roleName || !allowedRoles.includes(roleName)) {
+  if (!roleName || !ALL_AUTHORIZED_ROLES.includes(roleName as never)) {
     logger.warn({ userId, role: roleName }, 'Unauthorized patient list access attempt')
     throw new ForbiddenError('No tienes permiso para ver pacientes')
   }

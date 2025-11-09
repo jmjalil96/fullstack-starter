@@ -1,6 +1,6 @@
 /**
- * viewClaims.service.ts
- * Service for viewing and listing claims with role-based authorization
+ * viewClients.service.ts
+ * Service for viewing and listing clients with role-based authorization
  */
 
 // ============================================================================
@@ -8,7 +8,7 @@
 // ============================================================================
 
 import { db } from '../../../config/database.js'
-import { ALL_AUTHORIZED_ROLES, BROKER_EMPLOYEES } from '../../../shared/constants/roles.js'
+import { ALL_AUTHORIZED_ROLES } from '../../../shared/constants/roles.js'
 import {
   ForbiddenError,
   UnauthorizedError,
@@ -16,11 +16,11 @@ import {
 import { logger } from '../../../shared/middleware/logger.js'
 
 import type {
-  ClaimListItemResponse,
-  GetClaimsQueryParams,
-  GetClaimsResponse,
+  ClientListItemResponse,
+  GetClientsQueryParams,
+  GetClientsResponse,
   PaginationMetadata,
-} from './viewClaims.dto.js'
+} from './viewClients.dto.js'
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -39,21 +39,21 @@ interface UserContext {
 // ============================================================================
 
 /**
- * Get claims based on user role and query filters
+ * Get clients based on user role and query filters
  *
  * Role-based scoping:
- * - AFFILIATE: Only claims where they are the main affiliate
- * - CLIENT_ADMIN: Claims from all their accessible clients
- * - BROKER EMPLOYEES: All claims (can filter by client, status, search)
+ * - AFFILIATE: Only their own client
+ * - CLIENT_ADMIN: All their accessible clients
+ * - BROKER EMPLOYEES: All clients (can filter by search, isActive)
  *
- * @param userId - ID of user requesting claims
- * @param query - Validated query parameters (status, clientId, search, page, limit)
- * @returns Paginated claims list with metadata
+ * @param userId - ID of user requesting clients
+ * @param query - Validated query parameters (search, isActive, page, limit)
+ * @returns Paginated clients list with metadata
  */
-export async function getClaims(
+export async function getClients(
   userId: string,
-  query: GetClaimsQueryParams
-): Promise<GetClaimsResponse> {
+  query: GetClientsQueryParams
+): Promise<GetClientsResponse> {
   // STEP 1: Load User Context
   const user = await getUserWithContext(userId)
 
@@ -65,31 +65,29 @@ export async function getClaims(
   const roleName = user.globalRole?.name
 
   if (!roleName || !ALL_AUTHORIZED_ROLES.includes(roleName as never)) {
-    logger.warn({ userId, role: roleName }, 'Unauthorized claims list access attempt')
-    throw new ForbiddenError('No tienes permiso para ver reclamos')
+    logger.warn({ userId, role: roleName }, 'Unauthorized clients list access attempt')
+    throw new ForbiddenError('No tienes permiso para ver clientes')
   }
 
   // STEP 3: Build Base Where Clause (Role-Based Scoping)
   const isAffiliate = roleName === 'AFFILIATE'
   const isClientAdmin = roleName === 'CLIENT_ADMIN'
-  const isBrokerEmployee = BROKER_EMPLOYEES.includes(roleName as never)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let where: any = {}
 
   if (isAffiliate) {
-    // AFFILIATE: Only claims where they are the main affiliate
+    // AFFILIATE: Only their own client
     if (!user.affiliate) {
       logger.warn({ userId }, 'AFFILIATE has no affiliate record')
       return emptyResponse(query)
     }
 
     where = {
-      affiliateId: user.affiliate.id,
-      clientId: user.affiliate.clientId, // Security: constrain to their client
+      id: user.affiliate.clientId,
     }
   } else if (isClientAdmin) {
-    // CLIENT_ADMIN: Claims from all accessible clients
+    // CLIENT_ADMIN: All accessible clients
     const accessibleClientIds = user.clientAccess.map((uc) => uc.clientId)
 
     if (accessibleClientIds.length === 0) {
@@ -98,41 +96,23 @@ export async function getClaims(
     }
 
     where = {
-      clientId: { in: accessibleClientIds },
+      id: { in: accessibleClientIds },
     }
   }
   // BROKER EMPLOYEES: No base restrictions (where stays empty)
 
   // STEP 4: Apply Query Filters
-  if (query.status) {
-    where.status = query.status
+  if (query.isActive !== undefined) {
+    where.isActive = query.isActive
   }
 
   if (query.search) {
-    // Search by claim number (already uppercased by schema)
-    where.claimNumber = query.search
-  }
-
-  if (query.clientId) {
-    // Apply client filter based on role
-    if (isAffiliate) {
-      // AFFILIATE: Ignore clientId filter (can only see their own client)
-      logger.info({ userId, requestedClient: query.clientId }, 'AFFILIATE clientId filter ignored')
-    } else if (isClientAdmin) {
-      // CLIENT_ADMIN: Validate access to requested client
-      const hasAccess = user.clientAccess.some((uc) => uc.clientId === query.clientId)
-      if (!hasAccess) {
-        logger.warn(
-          { userId, requestedClient: query.clientId, accessibleClients: user.clientAccess.map((c) => c.clientId) },
-          'CLIENT_ADMIN attempted unauthorized client filter'
-        )
-        throw new ForbiddenError('No tienes acceso a este cliente')
-      }
-      where.clientId = query.clientId
-    } else if (isBrokerEmployee) {
-      // BROKER: Apply filter directly
-      where.clientId = query.clientId
-    }
+    // Search across name, taxId, email (case-insensitive, partial match)
+    where.OR = [
+      { name: { contains: query.search, mode: 'insensitive' } },
+      { taxId: { contains: query.search, mode: 'insensitive' } },
+      { email: { contains: query.search, mode: 'insensitive' } },
+    ]
   }
 
   // STEP 5: Calculate Pagination
@@ -142,54 +122,36 @@ export async function getClaims(
   const take = limit
 
   // STEP 6: Execute Parallel Queries
-  const [claims, total] = await Promise.all([
-    db.claim.findMany({
+  const [clients, total] = await Promise.all([
+    db.client.findMany({
       where,
       skip,
       take,
       orderBy: { createdAt: 'desc' }, // Newest first
       select: {
         id: true,
-        claimNumber: true,
-        status: true,
-        clientId: true,
-        affiliateId: true,
-        patientId: true,
-        amount: true,
-        approvedAmount: true,
-        submittedDate: true,
+        name: true,
+        taxId: true,
+        email: true,
+        phone: true,
+        address: true,
+        isActive: true,
         createdAt: true,
-        client: {
-          select: { name: true },
-        },
-        affiliate: {
-          select: { firstName: true, lastName: true },
-        },
-        patient: {
-          select: { firstName: true, lastName: true },
-        },
       },
     }),
-    db.claim.count({ where }),
+    db.client.count({ where }),
   ])
 
   // STEP 7: Transform Data to DTO
-  const transformedClaims: ClaimListItemResponse[] = claims.map((claim) => ({
-    id: claim.id,
-    claimNumber: claim.claimNumber,
-    status: claim.status as ClaimListItemResponse['status'],
-    clientId: claim.clientId,
-    clientName: claim.client.name,
-    affiliateId: claim.affiliateId,
-    affiliateFirstName: claim.affiliate.firstName,
-    affiliateLastName: claim.affiliate.lastName,
-    patientId: claim.patientId,
-    patientFirstName: claim.patient.firstName,
-    patientLastName: claim.patient.lastName,
-    amount: claim.amount,
-    approvedAmount: claim.approvedAmount,
-    submittedDate: claim.submittedDate?.toISOString().split('T')[0] ?? null,
-    createdAt: claim.createdAt.toISOString(),
+  const transformedClients: ClientListItemResponse[] = clients.map((client) => ({
+    id: client.id,
+    name: client.name,
+    taxId: client.taxId,
+    email: client.email,
+    phone: client.phone,
+    address: client.address,
+    isActive: client.isActive,
+    createdAt: client.createdAt.toISOString(),
   }))
 
   // STEP 8: Calculate Pagination Metadata
@@ -209,17 +171,17 @@ export async function getClaims(
     {
       userId,
       role: roleName,
-      filters: { status: query.status, clientId: query.clientId, search: query.search },
-      resultCount: transformedClaims.length,
+      filters: { search: query.search, isActive: query.isActive },
+      resultCount: transformedClients.length,
       total,
       page,
     },
-    'Claims retrieved'
+    'Clients retrieved'
   )
 
   // STEP 10: Return Response
   return {
-    claims: transformedClaims,
+    clients: transformedClients,
     pagination,
   }
 }
@@ -229,7 +191,7 @@ export async function getClaims(
 // ============================================================================
 
 /**
- * Load user with all context needed for claims authorization
+ * Load user with all context needed for clients authorization
  *
  * @param userId - User ID to load
  * @returns User with role, affiliate, and client access data
@@ -256,12 +218,12 @@ async function getUserWithContext(userId: string): Promise<UserContext | null> {
 /**
  * Return empty response with pagination for edge cases
  */
-function emptyResponse(query: GetClaimsQueryParams): GetClaimsResponse {
+function emptyResponse(query: GetClientsQueryParams): GetClientsResponse {
   const page = query.page ?? 1
   const limit = query.limit ?? 20
 
   return {
-    claims: [],
+    clients: [],
     pagination: {
       total: 0,
       page,

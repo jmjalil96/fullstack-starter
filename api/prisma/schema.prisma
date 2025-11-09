@@ -140,7 +140,7 @@ model UserClient {
 model Client {
   id      String  @id @default(cuid())
   name    String
-  taxId   String? @unique
+  taxId   String  @unique
   email   String?
   phone   String?
   address String?
@@ -160,7 +160,6 @@ model Client {
   auditLogs      AuditLog[]
 
   @@index([name])
-  @@index([taxId])
   @@index([isActive])
 }
 

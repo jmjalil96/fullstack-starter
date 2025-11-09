@@ -8,6 +8,7 @@
 // ============================================================================
 
 import { db } from '../../../config/database.js'
+import { ALL_AUTHORIZED_ROLES } from '../../../shared/constants/roles.js'
 import {
   ForbiddenError,
   NotFoundError,
@@ -66,16 +67,8 @@ export async function getClaimById(
 
   // STEP 2: Role Authorization Check
   const roleName = user.globalRole?.name
-  const allowedRoles = [
-    'SUPER_ADMIN',
-    'CLAIMS_EMPLOYEE',
-    'OPERATIONS_EMPLOYEE',
-    'ADMIN_EMPLOYEE',
-    'CLIENT_ADMIN',
-    'AFFILIATE',
-  ]
 
-  if (!roleName || !allowedRoles.includes(roleName)) {
+  if (!roleName || !ALL_AUTHORIZED_ROLES.includes(roleName as never)) {
     logger.warn({ userId, role: roleName }, 'Unauthorized claim detail access attempt')
     throw new ForbiddenError('No tienes permiso para ver reclamos')
   }
