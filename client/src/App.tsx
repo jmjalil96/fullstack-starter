@@ -8,6 +8,8 @@ import { NuevoCaso } from './pages/casos/NuevoCaso'
 import { Afiliados } from './pages/clientes/Afiliados'
 import { ClienteDetalle } from './pages/clientes/ClienteDetalle'
 import { Clientes } from './pages/clientes/Clientes'
+import { NuevaPoliza } from './pages/clientes/NuevaPoliza'
+import { PolizaDetalle } from './pages/clientes/PolizaDetalle'
 import { Polizas } from './pages/clientes/Polizas'
 import { ComponentTest } from './pages/ComponentTest'
 import { Dashboard } from './pages/Dashboard'
@@ -63,6 +65,8 @@ function AppRoutes() {
           <Route path="clientes/lista" element={<Clientes />} />
           <Route path="clientes/:id" element={<ClienteDetalle />} />
           <Route path="clientes/polizas" element={<Polizas />} />
+          <Route path="clientes/polizas/nueva" element={<NuevaPoliza />} />
+          <Route path="clientes/polizas/:id" element={<PolizaDetalle />} />
           <Route path="clientes/afiliados" element={<Afiliados />} />
 
           {/* Casos (Centro de Resolución) */}

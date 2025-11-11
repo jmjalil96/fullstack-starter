@@ -4,6 +4,7 @@
 
 export { ClientHeader } from './ClientHeader'
 export { ClientDetailsCard } from './ClientDetailsCard'
+export { ClientDetailSkeleton } from './ClientDetailSkeleton'
 export { ClientActionsCard } from './ClientActionsCard'
 export { ClientMetadataCard } from './ClientMetadataCard'
 export { EditClientModal } from './EditClientModal'

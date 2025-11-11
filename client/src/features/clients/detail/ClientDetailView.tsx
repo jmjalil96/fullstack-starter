@@ -5,12 +5,12 @@
 
 import { useState } from 'react'
 
-import { Spinner } from '../../../shared/components/ui/Spinner'
 import { useGetClientDetail } from '../../../shared/hooks/clients/useGetClientDetail'
 
 import {
   ClientActionsCard,
   ClientDetailsCard,
+  ClientDetailSkeleton,
   ClientHeader,
   ClientMetadataCard,
   EditClientModal,
@@ -47,13 +47,9 @@ export function ClientDetailView({ clientId }: ClientDetailViewProps) {
   // Modal state
   const [editModalOpen, setEditModalOpen] = useState(false)
 
-  // Loading state - show spinner if no data and no error
+  // Loading state - show skeleton layout
   if (!client && !error) {
-    return (
-      <div className="flex justify-center items-center min-h-[400px]">
-        <Spinner size="lg" />
-      </div>
-    )
+    return <ClientDetailSkeleton />
   }
 
   // Error state (includes 404 not found)

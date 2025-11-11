@@ -10,7 +10,7 @@ import { Spinner } from '../../../shared/components/ui/Spinner'
 import { useGetClients } from '../../../shared/hooks/clients/useGetClients'
 import { CreateClientModal } from '../new/CreateClientModal'
 
-import { ClientCard, ClientsFilterBar, ClientsPagination } from './components'
+import { ClientCard, ClientCardSkeleton, ClientsFilterBar, ClientsPagination } from './components'
 
 /**
  * ClientsListView - Orchestrates clients list display
@@ -127,6 +127,45 @@ export function ClientsListView() {
     refetch() // Refresh list to show new client
   }
 
+  // Initial load - show skeleton cards
+  if (loading && clients.length === 0 && !error) {
+    return (
+      <div className="space-y-6">
+        {/* Page Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-[var(--color-navy)]">Clientes</h1>
+            <p className="text-sm text-[var(--color-text-secondary)] mt-1">
+              Gestión de empresas clientes
+            </p>
+          </div>
+          <Button
+            variant="primary"
+            onClick={() => setCreateModalOpen(true)}
+            className="flex items-center gap-2"
+          >
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            <span className="hidden sm:inline">Crear Cliente</span>
+          </Button>
+        </div>
+
+        {/* Skeleton Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <ClientCardSkeleton key={i} />
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -174,7 +213,7 @@ export function ClientsListView() {
         )}
 
         {/* Empty state */}
-        {!loading && clients.length === 0 && !error && (
+        {!loading && pagination && clients.length === 0 && !error && (
           <div className="bg-white border border-[var(--color-border)] rounded-lg p-12 text-center">
             <svg
               className="mx-auto h-12 w-12 text-[var(--color-text-light)] mb-4"

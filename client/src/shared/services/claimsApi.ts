@@ -20,15 +20,23 @@ import type {
 /**
  * Get available clients for claim submission
  *
+ * @param options - Optional RequestInit options (e.g., signal for AbortController)
  * @returns Array of clients the current user can submit claims for
  * @throws {ApiRequestError} If request fails
  *
  * @example
  * const clients = await getAvailableClients()
  * // Returns: [{ id: '...', name: 'TechCorp' }, ...]
+ *
+ * @example
+ * // With AbortController
+ * const controller = new AbortController()
+ * const clients = await getAvailableClients({ signal: controller.signal })
  */
-export async function getAvailableClients(): Promise<AvailableClientResponse[]> {
-  return fetchAPI<AvailableClientResponse[]>('/api/claims/available-clients')
+export async function getAvailableClients(
+  options?: RequestInit
+): Promise<AvailableClientResponse[]> {
+  return fetchAPI<AvailableClientResponse[]>('/api/claims/available-clients', options)
 }
 
 /**
