@@ -48,7 +48,7 @@ interface ClaimDetailViewProps {
  */
 export function ClaimDetailView({ claimId }: ClaimDetailViewProps) {
   // Fetch claim data
-  const { claim, loading, error, refetch } = useGetClaimDetail(claimId)
+  const { claim, error, refetch } = useGetClaimDetail(claimId)
 
   // Modal state
   const [editModalOpen, setEditModalOpen] = useState(false)
@@ -72,8 +72,8 @@ export function ClaimDetailView({ claimId }: ClaimDetailViewProps) {
     await updateClaim(claim.id, { status: selectedTransition })
   }
 
-  // Loading state (initial load only)
-  if (loading && !claim) {
+  // Loading state - show spinner if no data and no error
+  if (!claim && !error) {
     return (
       <div className="flex justify-center items-center min-h-[400px]">
         <Spinner size="lg" />
@@ -81,7 +81,7 @@ export function ClaimDetailView({ claimId }: ClaimDetailViewProps) {
     )
   }
 
-  // Error state
+  // Error state (includes 404 not found)
   if (error) {
     return (
       <div className="bg-red-50 border border-red-200 rounded-lg p-4">
@@ -97,20 +97,8 @@ export function ClaimDetailView({ claimId }: ClaimDetailViewProps) {
     )
   }
 
-  // No claim found (shouldn't happen after loading, but defensive)
-  if (!claim) {
-    return (
-      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-        <p className="text-yellow-800 mb-4">Reclamo no encontrado</p>
-        <button
-          onClick={() => refetch()}
-          className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors text-sm font-medium"
-        >
-          Reintentar
-        </button>
-      </div>
-    )
-  }
+  // TypeScript guard - claim exists at this point
+  if (!claim) return null
 
   return (
     <div>

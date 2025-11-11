@@ -42,13 +42,13 @@ interface ClientDetailViewProps {
  */
 export function ClientDetailView({ clientId }: ClientDetailViewProps) {
   // Fetch client data
-  const { client, loading, error, refetch } = useGetClientDetail(clientId)
+  const { client, error, refetch } = useGetClientDetail(clientId)
 
   // Modal state
   const [editModalOpen, setEditModalOpen] = useState(false)
 
-  // Loading state (initial load only)
-  if (loading && !client) {
+  // Loading state - show spinner if no data and no error
+  if (!client && !error) {
     return (
       <div className="flex justify-center items-center min-h-[400px]">
         <Spinner size="lg" />
@@ -56,7 +56,7 @@ export function ClientDetailView({ clientId }: ClientDetailViewProps) {
     )
   }
 
-  // Error state
+  // Error state (includes 404 not found)
   if (error) {
     return (
       <div className="bg-red-50 border border-red-200 rounded-lg p-4">
@@ -72,20 +72,8 @@ export function ClientDetailView({ clientId }: ClientDetailViewProps) {
     )
   }
 
-  // No client found (shouldn't happen after loading, but defensive)
-  if (!client) {
-    return (
-      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-        <p className="text-yellow-800 mb-4">Cliente no encontrado</p>
-        <button
-          onClick={() => refetch()}
-          className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors text-sm font-medium"
-        >
-          Reintentar
-        </button>
-      </div>
-    )
-  }
+  // TypeScript guard - client exists at this point
+  if (!client) return null
 
   return (
     <div>

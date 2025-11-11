@@ -5,6 +5,7 @@
 
 import { Router } from 'express'
 
+import { env } from '../../../config/env.js'
 import { asyncHandler } from '../../../shared/middleware/asyncHandler.js'
 // import { requireAuth } from '../../../shared/middleware/requireAuth.js'
 import { validateRequest } from '../../../shared/middleware/validation.js'
@@ -38,7 +39,7 @@ router.get(
   validateRequest({ query: getClientsQuerySchema }),
   asyncHandler(async (req, res) => {
     // TODO: REMOVE MOCK - Use req.user.id when requireAuth is enabled
-    const userId = 'YYAICSs5cRQL1kl2syJSmzepmhWDVZ8g' // SUPER_ADMIN for testing
+    const userId = env.TEST_USER_ID // Mock user for testing (remove in production)
 
     // Zod validation ensures query params are validated and have defaults
     // Type assertion safe because validateRequest middleware has validated
@@ -68,7 +69,7 @@ router.get(
   validateRequest({ params: clientIdParamSchema }),
   asyncHandler(async (req, res) => {
     // TODO: REMOVE MOCK - Use req.user.id when requireAuth is enabled
-    const userId = 'YYAICSs5cRQL1kl2syJSmzepmhWDVZ8g' // SUPER_ADMIN for testing
+    const userId = env.TEST_USER_ID // Mock user for testing (remove in production)
 
     const { id } = req.params as ClientIdParam
 

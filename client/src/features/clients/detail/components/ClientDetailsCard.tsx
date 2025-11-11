@@ -16,18 +16,6 @@ interface ClientDetailsCardProps {
 }
 
 /**
- * Format ISO date string to localized date
- * Safe parser with NaN check
- */
-const formatDate = (value: string | null): string => {
-  if (!value) return '—'
-  const d = new Date(value)
-  return Number.isNaN(d.getTime())
-    ? '—'
-    : d.toLocaleDateString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit' })
-}
-
-/**
  * ClientDetailsCard - Comprehensive client details organized by sections
  *
  * Features:
@@ -59,16 +47,6 @@ export function ClientDetailsCard({ client }: ClientDetailsCardProps) {
               <IsActiveBadge isActive={client.isActive} />
             </div>
           </div>
-          <ReadOnlyField
-            label="Fecha de Creación"
-            value={client.createdAt}
-            formatter={(v) => formatDate(v as string | null)}
-          />
-          <ReadOnlyField
-            label="Última Actualización"
-            value={client.updatedAt}
-            formatter={(v) => formatDate(v as string | null)}
-          />
         </div>
       </section>
 
