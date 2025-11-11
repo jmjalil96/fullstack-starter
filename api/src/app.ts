@@ -12,6 +12,11 @@ import viewClaimsRouter from './features/claims/views/viewClaims.route.js'
 import clientEditRouter from './features/clients/edit/clientEdit.route.js'
 import createClientRouter from './features/clients/new/createClient.route.js'
 import viewClientsRouter from './features/clients/views/viewClients.route.js'
+import policyEditRouter from './features/policies/edit/policyEdit.route.js'
+import availableClientsRouter from './features/policies/lookups/clients.route.js'
+import availableInsurersRouter from './features/policies/lookups/insurers.route.js'
+import createPolicyRouter from './features/policies/new/createPolicy.route.js'
+import viewPoliciesRouter from './features/policies/views/viewPolicies.route.js'
 import { errorHandler } from './shared/errors/errorHandler.js'
 import { NotFoundError, UnauthorizedError } from './shared/errors/errors.js'
 import { asyncHandler } from './shared/middleware/asyncHandler.js'
@@ -51,6 +56,11 @@ app.use('/api', availablePoliciesRouter)
 app.use('/api', createClientRouter)
 app.use('/api', clientEditRouter)
 app.use('/api', viewClientsRouter)
+app.use('/api', availableClientsRouter)
+app.use('/api', availableInsurersRouter)
+app.use('/api', createPolicyRouter)
+app.use('/api', policyEditRouter)
+app.use('/api', viewPoliciesRouter)
 
 // 6. Health check
 app.get('/health', (_req: Request, res: Response) => {

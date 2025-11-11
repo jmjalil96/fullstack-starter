@@ -21,6 +21,7 @@ const envSchema = z.object({
     .default('http://localhost:5173,http://localhost:5174')
     .transform(val => val.split(',').map(origin => origin.trim())),
   CLAIM_NUMBER_SALT: z.string().optional(),
+  TEST_USER_ID: z.string().min(1, 'TEST_USER_ID is required'),
   // Add more environment variables here as needed
 })
 .refine(
