@@ -85,7 +85,19 @@ export async function fetchAPI<T = unknown>(
   }
 
   try {
+    // Log outgoing request with timestamp
+    const startTime = Date.now()
+    const timestamp = new Date().toISOString().split('T')[1].slice(0, -1) // HH:MM:SS.mmm
+    // eslint-disable-next-line no-console
+    console.log(`[API ${timestamp}] → ${options.method || 'GET'} ${endpoint}`)
+
     const response = await fetch(url, config)
+
+    // Log response with duration
+    const duration = Date.now() - startTime
+    const responseTimestamp = new Date().toISOString().split('T')[1].slice(0, -1)
+    // eslint-disable-next-line no-console
+    console.log(`[API ${responseTimestamp}] ← ${options.method || 'GET'} ${endpoint} - ${response.status} (${duration}ms)`)
 
     // Handle non-JSON responses (e.g., 204 No Content)
     if (response.status === 204) {
@@ -103,6 +115,11 @@ export async function fetchAPI<T = unknown>(
       if (response.status === 401) {
         onUnauthorized?.()
       }
+
+      // Log API error
+      const errorTimestamp = new Date().toISOString().split('T')[1].slice(0, -1)
+      const errorMessage = error.message || (data as { error?: string }).error || response.statusText
+      console.error(`[API ${errorTimestamp}] ✗ ${options.method || 'GET'} ${endpoint} - ${response.status} ${errorMessage}`)
 
       throw new ApiRequestError(
         error.message || (data as { error?: string }).error || `HTTP ${response.status}: ${response.statusText}`,

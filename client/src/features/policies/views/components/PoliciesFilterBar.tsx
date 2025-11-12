@@ -5,8 +5,6 @@
 import { type ChangeEvent, type KeyboardEvent, useEffect, useId, useState } from 'react'
 
 import { Button } from '../../../../shared/components/ui/Button'
-import { useAvailableClients } from '../../../../shared/hooks/policies/useAvailableClients'
-import { useAvailableInsurers } from '../../../../shared/hooks/policies/useAvailableInsurers'
 import type { PolicyStatus } from '../../../../shared/types/policies'
 
 /**
@@ -16,15 +14,11 @@ interface PoliciesFilterBarProps {
   /** Current filter values */
   filters: {
     status?: PolicyStatus
-    clientId?: string
-    insurerId?: string
     search?: string
   }
   /** Callback when filters change */
   onFiltersChange: (filters: {
     status?: PolicyStatus
-    clientId?: string
-    insurerId?: string
     search?: string
   }) => void
   /** Loading state (disables inputs) */
@@ -37,8 +31,6 @@ interface PoliciesFilterBarProps {
  * Features:
  * - Search by policy number (debounced 400ms, immediate on Enter)
  * - Filter by status dropdown (PENDING/ACTIVE/EXPIRED/CANCELLED)
- * - Filter by client dropdown (searchable select)
- * - Filter by insurer dropdown (searchable select)
  * - Clear filters button (when filters active)
  * - Client-side validation (min 3 chars, max 50, uppercase)
  * - Disabled during loading
@@ -64,24 +56,12 @@ interface PoliciesFilterBarProps {
 export function PoliciesFilterBar({ filters, onFiltersChange, loading = false }: PoliciesFilterBarProps) {
   const searchId = useId()
   const statusId = useId()
-  const clientId = useId()
-  const insurerId = useId()
-
-  // Fetch available clients and insurers for dropdowns
-  const { clients, loading: clientsLoading } = useAvailableClients()
-  const { insurers, loading: insurersLoading } = useAvailableInsurers()
 
   // Local search state for debouncing
   const [localSearch, setLocalSearch] = useState(filters.search || '')
 
   // Local status state for debouncing
   const [localStatus, setLocalStatus] = useState(filters.status)
-
-  // Local client state for debouncing
-  const [localClientId, setLocalClientId] = useState(filters.clientId)
-
-  // Local insurer state for debouncing
-  const [localInsurerId, setLocalInsurerId] = useState(filters.insurerId)
 
   // Sync localSearch when parent filters.search changes
   useEffect(() => {
@@ -92,16 +72,6 @@ export function PoliciesFilterBar({ filters, onFiltersChange, loading = false }:
   useEffect(() => {
     setLocalStatus(filters.status)
   }, [filters.status])
-
-  // Sync localClientId when parent filters.clientId changes
-  useEffect(() => {
-    setLocalClientId(filters.clientId)
-  }, [filters.clientId])
-
-  // Sync localInsurerId when parent filters.insurerId changes
-  useEffect(() => {
-    setLocalInsurerId(filters.insurerId)
-  }, [filters.insurerId])
 
   // Debounce search updates (400ms delay for smoother UX)
   useEffect(() => {
@@ -124,30 +94,6 @@ export function PoliciesFilterBar({ filters, onFiltersChange, loading = false }:
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [localStatus])
-
-  // Debounce client updates (150ms delay)
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (localClientId !== filters.clientId) {
-        onFiltersChange({ ...filters, clientId: localClientId })
-      }
-    }, 150)
-
-    return () => clearTimeout(timer)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [localClientId])
-
-  // Debounce insurer updates (150ms delay)
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (localInsurerId !== filters.insurerId) {
-        onFiltersChange({ ...filters, insurerId: localInsurerId })
-      }
-    }, 150)
-
-    return () => clearTimeout(timer)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [localInsurerId])
 
   /**
    * Update search filter with validation and normalization
@@ -183,22 +129,6 @@ export function PoliciesFilterBar({ filters, onFiltersChange, loading = false }:
   }
 
   /**
-   * Handle client dropdown change (debounced via localClientId)
-   */
-  const handleClientChange = (e: ChangeEvent<HTMLSelectElement>) => {
-    const newClientId = e.target.value || undefined
-    setLocalClientId(newClientId)
-  }
-
-  /**
-   * Handle insurer dropdown change (debounced via localInsurerId)
-   */
-  const handleInsurerChange = (e: ChangeEvent<HTMLSelectElement>) => {
-    const newInsurerId = e.target.value || undefined
-    setLocalInsurerId(newInsurerId)
-  }
-
-  /**
    * Clear all filters
    */
   const handleClearFilters = () => {
@@ -206,10 +136,10 @@ export function PoliciesFilterBar({ filters, onFiltersChange, loading = false }:
   }
 
   // Check if any filters are active
-  const hasActiveFilters = Boolean(filters.status || filters.clientId || filters.insurerId || filters.search)
+  const hasActiveFilters = Boolean(filters.status || filters.search)
 
   // Determine if inputs should be disabled
-  const isDisabled = loading || clientsLoading || insurersLoading
+  const isDisabled = loading
 
   return (
     <div className="bg-white border border-[var(--color-border)] rounded-lg p-4 shadow-sm">
@@ -270,51 +200,6 @@ export function PoliciesFilterBar({ filters, onFiltersChange, loading = false }:
             <option value="ACTIVE">Activo</option>
             <option value="EXPIRED">Vencido</option>
             <option value="CANCELLED">Cancelado</option>
-          </select>
-        </div>
-
-        {/* Client Dropdown */}
-        <div className="w-56">
-          <label htmlFor={clientId} className="block text-sm font-medium text-[var(--color-navy)] mb-2">
-            Cliente
-          </label>
-          <select
-            id={clientId}
-            value={localClientId ?? ''}
-            onChange={handleClientChange}
-            disabled={isDisabled}
-            aria-disabled={isDisabled}
-            className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:ring-2 focus:ring-[var(--color-teal)] focus:border-transparent transition-colors disabled:bg-[var(--color-bg-secondary)] disabled:cursor-not-allowed"
-          >
-            <option value="">Todos los clientes</option>
-            {clients.map((client) => (
-              <option key={client.id} value={client.id}>
-                {client.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Insurer Dropdown */}
-        <div className="w-56">
-          <label htmlFor={insurerId} className="block text-sm font-medium text-[var(--color-navy)] mb-2">
-            Aseguradora
-          </label>
-          <select
-            id={insurerId}
-            value={localInsurerId ?? ''}
-            onChange={handleInsurerChange}
-            disabled={isDisabled}
-            aria-disabled={isDisabled}
-            className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:ring-2 focus:ring-[var(--color-teal)] focus:border-transparent transition-colors disabled:bg-[var(--color-bg-secondary)] disabled:cursor-not-allowed"
-          >
-            <option value="">Todas las aseguradoras</option>
-            {insurers.map((insurer) => (
-              <option key={insurer.id} value={insurer.id}>
-                {insurer.name}
-                {insurer.code ? ` (${insurer.code})` : ''}
-              </option>
-            ))}
           </select>
         </div>
 

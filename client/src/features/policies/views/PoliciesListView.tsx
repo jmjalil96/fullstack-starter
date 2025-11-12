@@ -39,13 +39,9 @@ export function PoliciesListView() {
   // Initialize state from URL params on mount
   const [filters, setFilters] = useState<{
     status?: PolicyStatus
-    clientId?: string
-    insurerId?: string
     search?: string
   }>(() => ({
     status: (searchParams.get('status') as PolicyStatus) || undefined,
-    clientId: searchParams.get('clientId') || undefined,
-    insurerId: searchParams.get('insurerId') || undefined,
     search: searchParams.get('search') || undefined,
   }))
 
@@ -61,12 +57,6 @@ export function PoliciesListView() {
 
     if (filters.status) {
       params.set('status', filters.status)
-    }
-    if (filters.clientId) {
-      params.set('clientId', filters.clientId)
-    }
-    if (filters.insurerId) {
-      params.set('insurerId', filters.insurerId)
     }
     if (filters.search) {
       params.set('search', filters.search)
@@ -105,8 +95,6 @@ export function PoliciesListView() {
   const handleFiltersChange = (newFilters: typeof filters) => {
     const filtersChanged =
       newFilters.status !== filters.status ||
-      newFilters.clientId !== filters.clientId ||
-      newFilters.insurerId !== filters.insurerId ||
       newFilters.search !== filters.search
 
     setFilters(newFilters)
