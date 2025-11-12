@@ -142,15 +142,17 @@ export function PolicyDetailView({ policyId }: PolicyDetailViewProps) {
       {/* MODALS */}
 
       {/* Edit Modal - Large modal with all fields */}
-      <EditPolicyModal
-        isOpen={editModalOpen}
-        onClose={() => setEditModalOpen(false)}
-        policy={policy}
-        onSuccess={() => {
-          setEditModalOpen(false)
-          refetch()
-        }}
-      />
+      {editModalOpen && (
+        <EditPolicyModal
+          isOpen={editModalOpen}
+          onClose={() => setEditModalOpen(false)}
+          policy={policy}
+          onSuccess={() => {
+            setEditModalOpen(false)
+            refetch()
+          }}
+        />
+      )}
 
       {/* Status Transition Modal - Confirmation with requirements */}
       {selectedTransition && (

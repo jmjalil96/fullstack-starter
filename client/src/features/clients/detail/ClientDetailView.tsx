@@ -98,15 +98,17 @@ export function ClientDetailView({ clientId }: ClientDetailViewProps) {
       {/* MODALS */}
 
       {/* Edit Modal - Large modal with all fields */}
-      <EditClientModal
-        isOpen={editModalOpen}
-        onClose={() => setEditModalOpen(false)}
-        client={client}
-        onSuccess={() => {
-          setEditModalOpen(false)
-          refetch()
-        }}
-      />
+      {editModalOpen && (
+        <EditClientModal
+          isOpen={editModalOpen}
+          onClose={() => setEditModalOpen(false)}
+          client={client}
+          onSuccess={() => {
+            setEditModalOpen(false)
+            refetch()
+          }}
+        />
+      )}
     </div>
   )
 }

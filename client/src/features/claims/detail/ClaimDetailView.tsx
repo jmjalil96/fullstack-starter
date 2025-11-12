@@ -135,15 +135,17 @@ export function ClaimDetailView({ claimId }: ClaimDetailViewProps) {
       {/* MODALS */}
 
       {/* Edit Modal - Large modal with all fields */}
-      <EditClaimModal
-        isOpen={editModalOpen}
-        onClose={() => setEditModalOpen(false)}
-        claim={claim}
-        onSuccess={() => {
-          setEditModalOpen(false)
-          refetch()
-        }}
-      />
+      {editModalOpen && (
+        <EditClaimModal
+          isOpen={editModalOpen}
+          onClose={() => setEditModalOpen(false)}
+          claim={claim}
+          onSuccess={() => {
+            setEditModalOpen(false)
+            refetch()
+          }}
+        />
+      )}
 
       {/* Status Transition Modal - Confirmation with requirements */}
       {selectedTransition && (

@@ -76,7 +76,10 @@ export async function fetchAPI<T = unknown>(
     ...options, // Spread first (preserves signal, method, body, etc.)
     credentials: 'include', // Override to always include cookies for sessions
     headers: {
-      'Content-Type': 'application/json',
+      // Only set Content-Type for non-GET requests (prevents CORS preflight on GETs)
+      ...(options.method && options.method !== 'GET'
+        ? { 'Content-Type': 'application/json' }
+        : {}),
       ...(options.headers ?? {}), // Merge any custom headers
     },
   }

@@ -14,9 +14,7 @@ import { StatusBadge } from './StatusBadge'
 interface PoliciesTableProps {
   /** Array of policies to display */
   policies: PolicyListItemResponse[]
-  /** Handler for policy row click */
-  onPolicyClick: (policyId: string) => void
-  /** Loading state (for future skeleton) */
+  /** Loading state (for overlay during refetch) */
   loading?: boolean
 }
 
@@ -41,11 +39,11 @@ const formatDate = (dateString: string): string => {
  * PoliciesTable - Display policies in table format
  *
  * Features:
- * - 7 columns with formatted data
- * - Clickable rows (whole row + policy number link)
+ * - 8 columns with formatted data
+ * - Policy number link for navigation
  * - StatusBadge for visual status
- * - Client and Insurer links (client always links, insurer if detail exists)
- * - Keyboard navigation (Enter/Space on rows)
+ * - Client link to client detail
+ * - Actions column with "Ver" button
  * - Mobile responsive (horizontal scroll)
  * - Empty state handling
  * - Accessible table structure
@@ -54,13 +52,11 @@ const formatDate = (dateString: string): string => {
  * @example
  * <PoliciesTable
  *   policies={policies}
- *   onPolicyClick={(id) => navigate(`/polizas/${id}`)}
  *   loading={loading}
  * />
  */
 export function PoliciesTable({
   policies,
-  onPolicyClick,
   loading = false,
 }: PoliciesTableProps) {
   return (
@@ -148,17 +144,7 @@ export function PoliciesTable({
             {policies.map((policy) => (
               <tr
                 key={policy.id}
-                onClick={() => onPolicyClick(policy.id)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault()
-                    onPolicyClick(policy.id)
-                  }
-                }}
-                className="hover:bg-gray-50 transition-colors cursor-pointer"
-                tabIndex={0}
-                role="button"
-                aria-label={`Ver detalles de póliza ${policy.policyNumber}`}
+                className="hover:bg-gray-50 transition-colors"
               >
                 {/* Policy Number (Link - supports Cmd+Click for new tab) */}
                 <td className="px-4 py-3 text-sm">
@@ -166,7 +152,6 @@ export function PoliciesTable({
                     to={`/clientes/polizas/${policy.id}`}
                     className="text-[var(--color-teal)] hover:underline font-medium focus:outline-none focus:ring-2 focus:ring-[var(--color-teal)] rounded"
                     aria-label={`Abrir póliza ${policy.policyNumber}`}
-                    onClick={(e) => e.stopPropagation()}
                   >
                     {policy.policyNumber}
                   </Link>
@@ -188,7 +173,6 @@ export function PoliciesTable({
                     to={`/clientes/${policy.clientId}`}
                     className="text-[var(--color-teal)] hover:underline focus:outline-none focus:ring-2 focus:ring-[var(--color-teal)] rounded"
                     aria-label={`Ver cliente ${policy.clientName}`}
-                    onClick={(e) => e.stopPropagation()}
                   >
                     {policy.clientName}
                   </Link>
@@ -211,16 +195,13 @@ export function PoliciesTable({
 
                 {/* Actions Column - View Button */}
                 <td className="px-4 py-3 text-sm">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onPolicyClick(policy.id)
-                    }}
+                  <Link
+                    to={`/clientes/polizas/${policy.id}`}
                     className="text-[var(--color-teal)] hover:text-[var(--color-teal-dark)] font-medium focus:outline-none focus:ring-2 focus:ring-[var(--color-teal)] rounded px-2 py-1"
                     aria-label={`Ver detalles de póliza ${policy.policyNumber}`}
                   >
                     Ver
-                  </button>
+                  </Link>
                 </td>
               </tr>
             ))}

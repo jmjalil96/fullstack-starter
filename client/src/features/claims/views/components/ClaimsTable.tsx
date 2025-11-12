@@ -14,7 +14,7 @@ import { StatusBadge } from './StatusBadge'
 interface ClaimsTableProps {
   /** Array of claims to display */
   claims: ClaimListItemResponse[]
-  /** Loading state (for future skeleton) */
+  /** Loading state (for overlay during refetch) */
   loading?: boolean
   /** Currency code for amount formatting (default: 'USD') */
   currency?: string
@@ -61,10 +61,10 @@ const formatName = (firstName: string, lastName: string): string => {
  * ClaimsTable - Display claims in table format
  *
  * Features:
- * - 8 columns with formatted data
- * - Clickable rows (whole row + claim number link)
+ * - 9 columns with formatted data
+ * - Claim number link for navigation
  * - StatusBadge for visual status
- * - Keyboard navigation (Enter/Space on rows)
+ * - Actions column with "Ver" button
  * - Mobile responsive (horizontal scroll)
  * - Empty state handling
  * - Accessible table structure
@@ -72,7 +72,6 @@ const formatName = (firstName: string, lastName: string): string => {
  * @example
  * <ClaimsTable
  *   claims={claims}
- *   onClaimClick={(id) => navigate(`/reclamos/${id}`)}
  *   loading={loading}
  * />
  */
@@ -148,6 +147,12 @@ export function ClaimsTable({
               >
                 Creado
               </th>
+              <th
+                scope="col"
+                className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider"
+              >
+                Acciones
+              </th>
             </tr>
           </thead>
 
@@ -156,7 +161,7 @@ export function ClaimsTable({
             {/* Empty State */}
             {claims.length === 0 && !loading && (
               <tr>
-                <td colSpan={8} className="px-4 py-12 text-center text-sm text-[var(--color-text-secondary)]">
+                <td colSpan={9} className="px-4 py-12 text-center text-sm text-[var(--color-text-secondary)]">
                   No se encontraron reclamos
                 </td>
               </tr>
@@ -212,6 +217,17 @@ export function ClaimsTable({
                 {/* Created Date */}
                 <td className="px-4 py-3 text-sm text-[var(--color-text-secondary)]">
                   {formatDate(claim.createdAt)}
+                </td>
+
+                {/* Actions Column - View Button */}
+                <td className="px-4 py-3 text-sm">
+                  <Link
+                    to={`/reclamos/${claim.id}`}
+                    className="text-[var(--color-teal)] hover:text-[var(--color-teal-dark)] font-medium focus:outline-none focus:ring-2 focus:ring-[var(--color-teal)] rounded px-2 py-1"
+                    aria-label={`Ver detalles de reclamo ${claim.claimNumber}`}
+                  >
+                    Ver
+                  </Link>
                 </td>
               </tr>
             ))}

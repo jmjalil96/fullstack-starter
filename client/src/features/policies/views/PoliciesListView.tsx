@@ -125,12 +125,6 @@ export function PoliciesListView() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  /**
-   * Handle policy row click - navigate to detail page
-   */
-  const handlePolicyClick = (policyId: string) => {
-    navigate(`/clientes/polizas/${policyId}`)
-  }
 
   /**
    * Handle create button click - navigate to new policy page
@@ -212,7 +206,7 @@ export function PoliciesListView() {
       <PoliciesFilterBar filters={filters} onFiltersChange={handleFiltersChange} loading={loading} />
 
       {/* Policies Table */}
-      <PoliciesTable policies={policies} loading={loading} onPolicyClick={handlePolicyClick} />
+      <PoliciesTable policies={policies} loading={loading} />
 
       {/* Subtle corner loading indicator (delayed) */}
       {showLoading && (
