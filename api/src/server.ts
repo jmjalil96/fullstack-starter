@@ -2,8 +2,8 @@ import { app } from './app.js'
 import { env } from './config/env.js'
 import { logger } from './shared/middleware/logger.js'
 
-const server = app.listen(env.PORT, () => {
-  logger.info(`Server running on http://localhost:${env.PORT}`)
+const server = app.listen(env.PORT, '0.0.0.0', () => {
+  logger.info(`Server running on http://0.0.0.0:${env.PORT}`)
   logger.info(`Environment: ${env.NODE_ENV}`)
 })
 
