@@ -4,6 +4,7 @@
  */
 
 import { fetchAPI } from '../../config/api'
+import type { AffiliateType } from '../types/affiliates'
 import type {
   AvailableClientResponse,
   AvailableInsurerResponse,
@@ -14,6 +15,7 @@ import type {
   PolicyStatus,
   UpdatePolicyRequest,
   UpdatePolicyResponse,
+  GetPolicyAffiliatesResponse,
 } from '../types/policies'
 
 /**
@@ -250,4 +252,50 @@ export async function updatePolicy(
     body: JSON.stringify(cleanedUpdates),
     ...options,
   })
+}
+
+/**
+ * Get affiliates covered under a policy with optional filters
+ *
+ * Mirrors backend endpoint: GET /api/policies/:policyId/affiliates
+ * Backend applies defaults: page=1, limit=20
+ *
+ * @param policyId - Policy ID (CUID)
+ * @param params - Optional filters (search, affiliateType, isActive, page, limit)
+ * @param options - Optional RequestInit (e.g., signal for AbortController)
+ * @returns Paginated affiliates covered by the policy
+ * @throws {ApiRequestError} If request fails
+ */
+export async function getPolicyAffiliates(
+  policyId: string,
+  params?: {
+    search?: string
+    affiliateType?: AffiliateType
+    isActive?: boolean
+    page?: number
+    limit?: number
+  },
+  options?: RequestInit
+): Promise<GetPolicyAffiliatesResponse> {
+  const searchParams = new URLSearchParams()
+
+  if (params?.search) {
+    searchParams.append('search', params.search)
+  }
+  if (params?.affiliateType) {
+    searchParams.append('affiliateType', params.affiliateType)
+  }
+  if (params?.isActive !== undefined) {
+    searchParams.append('isActive', String(params.isActive))
+  }
+  if (params?.page !== undefined) {
+    searchParams.append('page', String(params.page))
+  }
+  if (params?.limit !== undefined) {
+    searchParams.append('limit', String(params.limit))
+  }
+
+  const qs = searchParams.toString()
+  const endpoint = `/api/policies/${policyId}/affiliates${qs ? `?${qs}` : ''}`
+  return fetchAPI<GetPolicyAffiliatesResponse>(endpoint, options)
 }

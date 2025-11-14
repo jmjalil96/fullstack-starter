@@ -1,24 +1,19 @@
 /**
  * ClaimDetailView - Main view for claim detail page
- * Orchestrates display components and modals
+ * Uses DetailPageLayout with tab navigation
  */
 
-import { useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 
+import { DetailPageLayout } from '../../../shared/components/DetailPageLayout'
+import { Button } from '../../../shared/components/ui/Button'
 import { Spinner } from '../../../shared/components/ui/Spinner'
 import { useGetClaimDetail } from '../../../shared/hooks/claims/useGetClaimDetail'
-import { useUpdateClaim } from '../../../shared/hooks/claims/useUpdateClaim'
-import type { ClaimStatus } from '../../../shared/types/claims'
+import { getClaimTabs } from '../../../shared/utils/detailTabs'
+import { StatusBadge } from '../views/components/StatusBadge'
 
-import {
-  ClaimActionsCard,
-  ClaimDetailsCard,
-  ClaimHeader,
-  EditClaimModal,
-  MetadataCard,
-  StatusTransitionModal,
-  WorkflowStepper,
-} from './components'
+import { ClaimOverviewTab } from './tabs'
 
 /**
  * Props for ClaimDetailView component
@@ -32,11 +27,9 @@ interface ClaimDetailViewProps {
  * ClaimDetailView - Complete claim detail page orchestrator
  *
  * Features:
+ * - DetailPageLayout with tab navigation
  * - Fetches and displays claim data
- * - 2-column layout (main + sidebar)
- * - Edit modal (large, all fields)
- * - Status transition modal (with requirements)
- * - Workflow stepper (visual progress)
+ * - Tab-based organization (Overview, Timeline, Documents)
  * - Loading/error states
  * - Auto-refetch after updates
  *
@@ -47,30 +40,45 @@ interface ClaimDetailViewProps {
  * }
  */
 export function ClaimDetailView({ claimId }: ClaimDetailViewProps) {
+  const navigate = useNavigate()
+
   // Fetch claim data
   const { claim, error, refetch } = useGetClaimDetail(claimId)
 
-  // Modal state
-  const [editModalOpen, setEditModalOpen] = useState(false)
-  const [statusModalOpen, setStatusModalOpen] = useState(false)
-  const [selectedTransition, setSelectedTransition] = useState<ClaimStatus | null>(null)
+  // Counts state for tab badges
+  const [counts, setCounts] = useState<{
+    timelineItems?: number
+    documents?: number
+  }>({})
 
-  // Update mutation
-  const { updateClaim, loading: updating } = useUpdateClaim({
-    onSuccess: () => {
-      setStatusModalOpen(false)
-      setSelectedTransition(null)
-      refetch()
-    },
-  })
+  // Counts abort controller ref
+  const countsAbort = useRef<AbortController | null>(null)
 
-  /**
-   * Handle status transition confirmation
-   */
-  const handleStatusTransition = async () => {
-    if (!selectedTransition || !claim) return
-    await updateClaim(claim.id, { status: selectedTransition })
-  }
+  // Fetch counts for tab badges
+  useEffect(() => {
+    if (!claim) return
+
+    // Cleanup previous request
+    countsAbort.current?.abort()
+    countsAbort.current = new AbortController()
+
+    // TODO: Implement counts fetching when endpoints are ready
+    // For now, set to undefined to avoid unused variable warning
+    setCounts({ timelineItems: undefined, documents: undefined })
+
+    return () => {
+      countsAbort.current?.abort()
+    }
+  }, [claim])
+
+  // Generate tabs with counts (guard for null)
+  const tabs = useMemo(() => {
+    if (!claim) return [{ label: 'Resumen', path: '' }]
+    return getClaimTabs(claim, {
+      timelineItems: counts.timelineItems,
+      documents: counts.documents,
+    })
+  }, [claim, counts])
 
   // Loading state - show spinner if no data and no error
   if (!claim && !error) {
@@ -101,66 +109,29 @@ export function ClaimDetailView({ claimId }: ClaimDetailViewProps) {
   if (!claim) return null
 
   return (
-    <div>
-      {/* Header: Claim number, status, back link */}
-      <ClaimHeader claim={claim} />
-
-      {/* Workflow Stepper: Visual progress */}
-      <WorkflowStepper currentStatus={claim.status} />
-
-      {/* Main Layout: 2-column grid */}
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* LEFT COLUMN: Main content (2/3) */}
-        <div className="lg:col-span-2">
-          <ClaimDetailsCard claim={claim} />
-        </div>
-
-        {/* RIGHT COLUMN: Sidebar (1/3) */}
-        <div className="space-y-6">
-          {/* Actions Card (edit, status transitions) */}
-          <ClaimActionsCard
-            currentStatus={claim.status}
-            onEdit={() => setEditModalOpen(true)}
-            onStatusChange={(status) => {
-              setSelectedTransition(status)
-              setStatusModalOpen(true)
-            }}
-          />
-
-          {/* Metadata Card (created by, dates) */}
-          <MetadataCard claim={claim} />
-        </div>
-      </div>
-
-      {/* MODALS */}
-
-      {/* Edit Modal - Large modal with all fields */}
-      {editModalOpen && (
-        <EditClaimModal
-          isOpen={editModalOpen}
-          onClose={() => setEditModalOpen(false)}
-          claim={claim}
-          onSuccess={() => {
-            setEditModalOpen(false)
-            refetch()
-          }}
-        />
-      )}
-
-      {/* Status Transition Modal - Confirmation with requirements */}
-      {selectedTransition && (
-        <StatusTransitionModal
-          isOpen={statusModalOpen}
-          onClose={() => {
-            setStatusModalOpen(false)
-            setSelectedTransition(null)
-          }}
-          claim={claim}
-          targetStatus={selectedTransition}
-          onConfirm={handleStatusTransition}
-          loading={updating}
-        />
-      )}
-    </div>
+    <DetailPageLayout
+      title={`Reclamo ${claim.claimNumber}`}
+      subtitle={`ID: ${claim.id}`}
+      badge={<StatusBadge status={claim.status} />}
+      tabs={tabs}
+      basePath={`/reclamos/${claimId}`}
+      actions={
+        <Button
+          variant="ghost"
+          onClick={() => navigate('/reclamos/atencion')}
+          className="flex items-center gap-1 hover:bg-gray-100 transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Volver
+        </Button>
+      }
+    >
+      <Routes>
+        <Route index element={<ClaimOverviewTab claim={claim} onRefetch={refetch} />} />
+        <Route path="*" element={<Navigate to={`/reclamos/${claimId}`} replace />} />
+      </Routes>
+    </DetailPageLayout>
   )
 }

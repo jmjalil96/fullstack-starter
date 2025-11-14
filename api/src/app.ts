@@ -5,6 +5,11 @@ import { z } from 'zod'
 
 import { auth } from './config/auth.js'
 import { env } from './config/env.js'
+import affiliateEditRouter from './features/affiliates/edit/affiliateEdit.route.js'
+import availableClientsForAffiliatesRouter from './features/affiliates/lookups/clients.route.js'
+import availableOwnersRouter from './features/affiliates/lookups/owners.route.js'
+import createAffiliateRouter from './features/affiliates/new/createAffiliate.route.js'
+import viewAffiliatesRouter from './features/affiliates/views/viewAffiliates.route.js'
 import claimEditRouter from './features/claims/edit/claimEdit.route.js'
 import newClaimRouter from './features/claims/new/newClaim.route.js'
 import availablePoliciesRouter from './features/claims/policies/availablePolicies.route.js'
@@ -12,6 +17,7 @@ import viewClaimsRouter from './features/claims/views/viewClaims.route.js'
 import clientEditRouter from './features/clients/edit/clientEdit.route.js'
 import createClientRouter from './features/clients/new/createClient.route.js'
 import viewClientsRouter from './features/clients/views/viewClients.route.js'
+import policyAffiliatesRouter from './features/policies/affiliates/policyAffiliates.route.js'
 import policyEditRouter from './features/policies/edit/policyEdit.route.js'
 import availableClientsRouter from './features/policies/lookups/clients.route.js'
 import availableInsurersRouter from './features/policies/lookups/insurers.route.js'
@@ -53,12 +59,18 @@ app.use('/api', newClaimRouter)
 app.use('/api', viewClaimsRouter)
 app.use('/api', claimEditRouter)
 app.use('/api', availablePoliciesRouter)
+app.use('/api', availableClientsForAffiliatesRouter)
+app.use('/api', availableOwnersRouter)
+app.use('/api', createAffiliateRouter)
+app.use('/api', affiliateEditRouter)
+app.use('/api', viewAffiliatesRouter)
 app.use('/api', createClientRouter)
 app.use('/api', clientEditRouter)
 app.use('/api', viewClientsRouter)
 app.use('/api', availableClientsRouter)
 app.use('/api', availableInsurersRouter)
 app.use('/api', createPolicyRouter)
+app.use('/api', policyAffiliatesRouter)
 app.use('/api', policyEditRouter)
 app.use('/api', viewPoliciesRouter)
 

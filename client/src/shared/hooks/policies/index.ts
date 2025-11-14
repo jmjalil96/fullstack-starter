@@ -8,6 +8,7 @@ export { useCreatePolicy } from './useCreatePolicy'
 export { useGetPolicies } from './useGetPolicies'
 export { useGetPolicyDetail } from './useGetPolicyDetail'
 export { useUpdatePolicy } from './useUpdatePolicy'
+export { useGetPolicyAffiliates } from './useGetPolicyAffiliates'
 
 export type {
   AvailableClientResponse,

@@ -5,6 +5,7 @@ import { CapstoneAI } from './pages/CapstoneAI'
 import { CasosAbiertos } from './pages/casos/CasosAbiertos'
 import { MisCasos } from './pages/casos/MisCasos'
 import { NuevoCaso } from './pages/casos/NuevoCaso'
+import { AfiliadoDetalle } from './pages/clientes/AfiliadoDetalle'
 import { Afiliados } from './pages/clientes/Afiliados'
 import { ClienteDetalle } from './pages/clientes/ClienteDetalle'
 import { Clientes } from './pages/clientes/Clientes'
@@ -59,15 +60,16 @@ function AppRoutes() {
           <Route path="reclamos/nuevo" element={<NuevoReclamo />} />
           <Route path="reclamos/mis-reclamos" element={<MisReclamos />} />
           <Route path="reclamos/atencion" element={<Atencion />} />
-          <Route path="reclamos/:id" element={<ReclamoDetalle />} />
+          <Route path="reclamos/:id/*" element={<ReclamoDetalle />} />
 
           {/* Clientes */}
           <Route path="clientes/lista" element={<Clientes />} />
-          <Route path="clientes/:id" element={<ClienteDetalle />} />
+          <Route path="clientes/:id/*" element={<ClienteDetalle />} />
           <Route path="clientes/polizas" element={<Polizas />} />
           <Route path="clientes/polizas/nueva" element={<NuevaPoliza />} />
-          <Route path="clientes/polizas/:id" element={<PolizaDetalle />} />
+          <Route path="clientes/polizas/:id/*" element={<PolizaDetalle />} />
           <Route path="clientes/afiliados" element={<Afiliados />} />
+          <Route path="clientes/afiliados/:id/*" element={<AfiliadoDetalle />} />
 
           {/* Casos (Centro de Resolución) */}
           <Route path="casos/nuevo" element={<NuevoCaso />} />

@@ -1,10 +1,18 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useCallback, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 
 /**
  * Toast types with different visual styles and durations
  */
 export type ToastType = 'success' | 'error' | 'info' | 'warning'
+
+// Default durations per type (in milliseconds) - module-scoped constant
+const DEFAULT_DURATIONS: Record<ToastType, number> = {
+  success: 4000,
+  info: 4000,
+  warning: 5000,
+  error: 6000,
+}
 
 /**
  * Toast configuration
@@ -59,15 +67,7 @@ export const ToastContext = createContext<ToastContextValue | null>(null)
  */
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([])
-  const [timers, setTimers] = useState<Map<string, number>>(new Map())
-
-  // Default durations per type (in milliseconds)
-  const DEFAULT_DURATIONS: Record<ToastType, number> = {
-    success: 4000,
-    info: 4000,
-    warning: 5000,
-    error: 6000,
-  }
+  const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
 
   // Maximum number of visible toasts
   const MAX_TOASTS = 4
@@ -78,6 +78,21 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const generateId = (): string => {
     return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
   }
+
+  /**
+   * Dismiss a specific toast
+   */
+  const dismiss = useCallback((id: string) => {
+    // Clear timer
+    const timer = timersRef.current.get(id)
+    if (timer) {
+      clearTimeout(timer)
+      timersRef.current.delete(id)
+    }
+
+    // Remove toast
+    setToasts(prev => prev.filter(toast => toast.id !== id))
+  }, [])
 
   /**
    * Add a new toast
@@ -96,11 +111,28 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         dismissible,
       }
 
+      let removedIds: string[] = []
       setToasts(prev => {
         const updated = [...prev, newToast]
-        // Keep only MAX_TOASTS, remove oldest
-        return updated.length > MAX_TOASTS ? updated.slice(-MAX_TOASTS) : updated
+        if (updated.length > MAX_TOASTS) {
+          const cut = updated.length - MAX_TOASTS
+          const removed = updated.slice(0, cut)
+          removedIds = removed.map(t => t.id)
+          return updated.slice(-MAX_TOASTS)
+        }
+        return updated
       })
+
+      // Clear timers for removed toasts (if we trimmed)
+      if (removedIds.length > 0) {
+        removedIds.forEach(rid => {
+          const t = timersRef.current.get(rid)
+          if (t) {
+            clearTimeout(t)
+            timersRef.current.delete(rid)
+          }
+        })
+      }
 
       // Set auto-dismiss timer if duration is finite
       if (duration !== Infinity) {
@@ -108,42 +140,23 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           dismiss(id)
         }, duration)
 
-        setTimers(prev => new Map(prev).set(id, timer))
+        timersRef.current.set(id, timer)
       }
 
       return id
     },
-    [] // eslint-disable-line react-hooks/exhaustive-deps
+    [dismiss]
   )
-
-  /**
-   * Dismiss a specific toast
-   */
-  const dismiss = useCallback((id: string) => {
-    // Clear timer
-    setTimers(prev => {
-      const newTimers = new Map(prev)
-      const timer = newTimers.get(id)
-      if (timer) {
-        clearTimeout(timer)
-        newTimers.delete(id)
-      }
-      return newTimers
-    })
-
-    // Remove toast after animation
-    setToasts(prev => prev.filter(toast => toast.id !== id))
-  }, [])
 
   /**
    * Clear all toasts
    */
   const clear = useCallback(() => {
     // Clear all timers
-    timers.forEach(timer => clearTimeout(timer))
-    setTimers(new Map())
+    timersRef.current.forEach(timer => clearTimeout(timer))
+    timersRef.current.clear()
     setToasts([])
-  }, [timers])
+  }, [])
 
   /**
    * Toast type-specific functions
@@ -172,10 +185,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
    * Cleanup timers on unmount
    */
   useEffect(() => {
+    const timers = timersRef.current
     return () => {
       timers.forEach(timer => clearTimeout(timer))
+      timers.clear()
     }
-  }, [timers])
+  }, [])
 
   const value: ToastContextValue = {
     toasts,

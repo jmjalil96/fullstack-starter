@@ -199,3 +199,48 @@ export interface UpdatePolicyRequest {
  * Returned from PUT /api/policies/:id
  */
 export type UpdatePolicyResponse = PolicyDetailResponse
+
+/**
+ * Policy affiliate item in list under a policy
+ * Mirrors: api/src/features/policies/affiliates/policyAffiliates.dto.ts
+ * Similar to AffiliateListItemResponse plus addedAt
+ */
+import type { AffiliateType, CoverageType } from './affiliates'
+
+export interface PolicyAffiliateResponse {
+  // Affiliate identification
+  id: string
+  firstName: string
+  lastName: string
+  email: string | null
+  documentNumber: string | null
+
+  // Type & coverage
+  affiliateType: AffiliateType
+  coverageType: CoverageType | null
+
+  // Status
+  isActive: boolean
+
+  // When this affiliate was added to this policy (ISO string)
+  addedAt: string
+}
+
+/**
+ * Pagination metadata for policy affiliates
+ */
+export interface PolicyAffiliatesPagination {
+  total: number
+  page: number
+  limit: number
+  totalPages: number
+  hasMore: boolean
+}
+
+/**
+ * Response from GET /api/policies/:policyId/affiliates
+ */
+export interface GetPolicyAffiliatesResponse {
+  affiliates: PolicyAffiliateResponse[]
+  pagination: PolicyAffiliatesPagination
+}

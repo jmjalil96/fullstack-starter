@@ -1,23 +1,19 @@
 /**
  * PolicyDetailView - Main view for policy detail page
- * Orchestrates display components and modals
+ * Uses DetailPageLayout with tab navigation
  */
 
-import { useState } from 'react'
+import { useMemo } from 'react'
+import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 
+import { DetailPageLayout } from '../../../shared/components/DetailPageLayout'
+import { Button } from '../../../shared/components/ui/Button'
 import { Spinner } from '../../../shared/components/ui/Spinner'
 import { useGetPolicyDetail } from '../../../shared/hooks/policies/useGetPolicyDetail'
-import { useUpdatePolicy } from '../../../shared/hooks/policies/useUpdatePolicy'
-import type { PolicyStatus } from '../../../shared/types/policies'
+import { getPolicyTabs } from '../../../shared/utils/detailTabs'
+import { StatusBadge } from '../views/components/StatusBadge'
 
-import {
-  EditPolicyModal,
-  MetadataCard,
-  PolicyActionsCard,
-  PolicyDetailsCard,
-  PolicyHeader,
-  StatusTransitionModal,
-} from './components'
+import { PolicyOverviewTab, PolicyAffiliatesTab } from './tabs'
 
 /**
  * Props for PolicyDetailView component
@@ -31,10 +27,9 @@ interface PolicyDetailViewProps {
  * PolicyDetailView - Complete policy detail page orchestrator
  *
  * Features:
+ * - DetailPageLayout with tab navigation
  * - Fetches and displays policy data
- * - 2-column layout (main + sidebar)
- * - Edit modal (large, all fields)
- * - Status transition modal (with requirements)
+ * - Tab-based organization (Overview, Documents, Activity)
  * - Loading/error states
  * - Auto-refetch after updates
  *
@@ -45,45 +40,16 @@ interface PolicyDetailViewProps {
  * }
  */
 export function PolicyDetailView({ policyId }: PolicyDetailViewProps) {
+  const navigate = useNavigate()
+
   // Fetch policy data
   const { policy, error, refetch } = useGetPolicyDetail(policyId)
 
-  // Modal state
-  const [editModalOpen, setEditModalOpen] = useState(false)
-  const [statusTransitionModalOpen, setStatusTransitionModalOpen] = useState(false)
-  const [selectedTransition, setSelectedTransition] = useState<PolicyStatus | null>(null)
-
-  // Update mutation
-  const { updatePolicy, loading: updating } = useUpdatePolicy({
-    onSuccess: () => {
-      setStatusTransitionModalOpen(false)
-      setSelectedTransition(null)
-      refetch()
-    },
-  })
-
-  /**
-   * Handle edit button click
-   */
-  const handleEdit = () => {
-    setEditModalOpen(true)
-  }
-
-  /**
-   * Handle status transition button click
-   */
-  const handleStatusTransition = (status: PolicyStatus) => {
-    setSelectedTransition(status)
-    setStatusTransitionModalOpen(true)
-  }
-
-  /**
-   * Handle status transition confirmation
-   */
-  const handleConfirmTransition = async () => {
-    if (!selectedTransition || !policy) return
-    await updatePolicy(policy.id, { status: selectedTransition })
-  }
+  // Generate tabs (guard for null; counts optional)
+  const tabs = useMemo(() => {
+    if (!policy) return [{ label: 'Resumen', path: '' }]
+    return getPolicyTabs(policy, { affiliates: undefined, claims: undefined, invoices: undefined })
+  }, [policy])
 
   // Loading state - show spinner if no data and no error
   if (!policy && !error) {
@@ -114,61 +80,30 @@ export function PolicyDetailView({ policyId }: PolicyDetailViewProps) {
   if (!policy) return null
 
   return (
-    <div>
-      {/* Header: Policy number, status, back link */}
-      <PolicyHeader policy={policy} />
-
-      {/* Main Layout: 2-column grid */}
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* LEFT COLUMN: Main content (2/3) */}
-        <div className="lg:col-span-2">
-          <PolicyDetailsCard policy={policy} />
-        </div>
-
-        {/* RIGHT COLUMN: Sidebar (1/3) */}
-        <div className="space-y-6">
-          {/* Actions Card (edit, status transitions) */}
-          <PolicyActionsCard
-            currentStatus={policy.status}
-            onEdit={handleEdit}
-            onStatusTransition={handleStatusTransition}
-          />
-
-          {/* Metadata Card (created by, dates) */}
-          <MetadataCard policy={policy} />
-        </div>
-      </div>
-
-      {/* MODALS */}
-
-      {/* Edit Modal - Large modal with all fields */}
-      {editModalOpen && (
-        <EditPolicyModal
-          isOpen={editModalOpen}
-          onClose={() => setEditModalOpen(false)}
-          policy={policy}
-          onSuccess={() => {
-            setEditModalOpen(false)
-            refetch()
-          }}
-        />
-      )}
-
-      {/* Status Transition Modal - Confirmation with requirements */}
-      {selectedTransition && (
-        <StatusTransitionModal
-          isOpen={statusTransitionModalOpen}
-          onClose={() => {
-            setStatusTransitionModalOpen(false)
-            setSelectedTransition(null)
-          }}
-          policyData={policy}
-          currentStatus={policy.status}
-          targetStatus={selectedTransition}
-          onConfirm={handleConfirmTransition}
-          loading={updating}
-        />
-      )}
-    </div>
+    <DetailPageLayout
+      title={policy.policyNumber}
+      subtitle={`ID: ${policy.id}`}
+      badge={<StatusBadge status={policy.status} />}
+      tabs={tabs}
+      basePath={`/clientes/polizas/${policyId}`}
+      actions={
+        <Button
+          variant="ghost"
+          onClick={() => navigate('/clientes/polizas')}
+          className="flex items-center gap-1 hover:bg-gray-100 transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Volver
+        </Button>
+      }
+    >
+      <Routes>
+        <Route index element={<PolicyOverviewTab policy={policy} onRefetch={refetch} />} />
+        <Route path="afiliados" element={<PolicyAffiliatesTab policyId={policy.id} />} />
+        <Route path="*" element={<Navigate to={`/clientes/polizas/${policyId}`} replace />} />
+      </Routes>
+    </DetailPageLayout>
   )
 }

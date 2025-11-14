@@ -235,7 +235,7 @@ model Affiliate {
 
   firstName   String
   lastName    String
-  email       String
+  email       String?
   phone       String?
   dateOfBirth DateTime?
 
