@@ -77,6 +77,22 @@ services:
         value: "CHANGE_ME_TO_REAL_USER_ID"
         scope: RUN_TIME
 
+      # CORS configuration - Frontend will be on same domain, so allow it
+      - key: CORS_ALLOWED_ORIGINS
+        value: ${APP_URL}
+        scope: RUN_TIME
+
+      # Client URL (same as app URL in production)
+      - key: CLIENT_URL
+        value: ${APP_URL}
+        scope: RUN_TIME
+
+      # Claim number generation salt (CHANGE THIS!)
+      - key: CLAIM_NUMBER_SALT
+        value: "CHANGE_ME_TO_RANDOM_STRING"
+        type: SECRET
+        scope: RUN_TIME
+
     # Routes handled by this service
     routes:
       - path: /api

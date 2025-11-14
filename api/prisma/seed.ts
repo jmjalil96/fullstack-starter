@@ -1,20 +1,473 @@
 /**
- * Seed database with test data
- * Run with: npx prisma db seed
+ * Comprehensive seed database with realistic test data
+ * Creates 20+ clients, 35 policies, 220+ affiliates, 40 claims
+ * Run with: npx prisma db seed or npm run db:seed
  */
 
-import { PrismaClient } from '@prisma/client'
+import {
+  AffiliateType,
+  type Affiliate,
+  ClaimStatus,
+  CoverageType,
+  type Policy,
+  PolicyStatus,
+  PrismaClient,
+} from '@prisma/client'
 
 const prisma = new PrismaClient()
 
-async function main() {
-  console.log('🌱 Starting seed...')
+// ============================================================================
+// HELPER FUNCTIONS - Data Generation Utilities
+// ============================================================================
 
-  // Clear existing data (in reverse order of dependencies)
+// ----------------------------------------------------------------------------
+// Random Utilities
+// ----------------------------------------------------------------------------
+
+function getRandomElement<T>(array: T[]): T {
+  return array[Math.floor(Math.random() * array.length)]!
+}
+
+function randomInt(min: number, max: number): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min
+}
+
+function randomFloat(min: number, max: number, decimals: number = 2): number {
+  const value = Math.random() * (max - min) + min
+  return Math.round(value * 10 ** decimals) / 10 ** decimals
+}
+
+// ----------------------------------------------------------------------------
+// Peruvian Name Generators
+// ----------------------------------------------------------------------------
+
+const MALE_FIRST_NAMES = [
+  'Juan',
+  'Carlos',
+  'José',
+  'Luis',
+  'Miguel',
+  'Pedro',
+  'Jorge',
+  'Roberto',
+  'Fernando',
+  'Raúl',
+  'Diego',
+  'Andrés',
+  'Ricardo',
+  'Manuel',
+  'Daniel',
+  'Francisco',
+  'Javier',
+  'Antonio',
+  'Alberto',
+  'César',
+  'Óscar',
+  'Víctor',
+  'Enrique',
+  'Eduardo',
+  'Pablo',
+  'Alejandro',
+  'Gustavo',
+  'Martín',
+  'Sergio',
+  'Rodrigo',
+]
+
+const FEMALE_FIRST_NAMES = [
+  'María',
+  'Carmen',
+  'Rosa',
+  'Ana',
+  'Patricia',
+  'Lucía',
+  'Elena',
+  'Gabriela',
+  'Sandra',
+  'Laura',
+  'Daniela',
+  'Verónica',
+  'Mónica',
+  'Isabel',
+  'Sofía',
+  'Claudia',
+  'Andrea',
+  'Diana',
+  'Valeria',
+  'Natalia',
+  'Silvia',
+  'Beatriz',
+  'Mariana',
+  'Teresa',
+  'Adriana',
+  'Paola',
+  'Carolina',
+  'Lorena',
+  'Fernanda',
+  'Cristina',
+]
+
+const LAST_NAMES = [
+  'Pérez',
+  'López',
+  'García',
+  'Rodríguez',
+  'González',
+  'Fernández',
+  'Ramírez',
+  'Torres',
+  'Flores',
+  'Sánchez',
+  'Díaz',
+  'Vargas',
+  'Castro',
+  'Ramos',
+  'Vega',
+  'Mendoza',
+  'Morales',
+  'Rojas',
+  'Gutiérrez',
+  'Paredes',
+  'Navarro',
+  'Cruz',
+  'Silva',
+  'Quispe',
+  'Huamán',
+  'Chávez',
+  'Castillo',
+  'Ortiz',
+  'Delgado',
+  'Herrera',
+]
+
+function generateMaleName(): { firstName: string; lastName: string } {
+  return {
+    firstName: getRandomElement(MALE_FIRST_NAMES),
+    lastName: getRandomElement(LAST_NAMES),
+  }
+}
+
+function generateFemaleName(): { firstName: string; lastName: string } {
+  return {
+    firstName: getRandomElement(FEMALE_FIRST_NAMES),
+    lastName: getRandomElement(LAST_NAMES),
+  }
+}
+
+function generateRandomName(): { firstName: string; lastName: string } {
+  return Math.random() > 0.5 ? generateMaleName() : generateFemaleName()
+}
+
+function generateChildName(parentLastName: string): { firstName: string; lastName: string } {
+  const firstName =
+    Math.random() > 0.5 ? getRandomElement(MALE_FIRST_NAMES) : getRandomElement(FEMALE_FIRST_NAMES)
+  return { firstName, lastName: parentLastName }
+}
+
+// ----------------------------------------------------------------------------
+// Company Name Generator
+// ----------------------------------------------------------------------------
+
+const COMPANY_PREFIXES = [
+  'Corporación',
+  'Grupo',
+  'Empresa',
+  'Comercial',
+  'Industrias',
+  'Servicios',
+  'Tecnologías',
+  'Inversiones',
+  'Distribuidora',
+  'Consultora',
+  'Soluciones',
+  'Sistemas',
+]
+
+const COMPANY_NAMES = [
+  'Sol',
+  'Andes',
+  'Pacífico',
+  'Lima',
+  'Inca',
+  'Perú',
+  'América',
+  'Continental',
+  'Nacional',
+  'Global',
+  'Digital',
+  'Premium',
+  'Elite',
+  'Prime',
+  'Omega',
+  'Delta',
+  'Alpha',
+  'Beta',
+  'Gamma',
+  'Sigma',
+  'Nova',
+  'Nexus',
+  'Quantum',
+  'Phoenix',
+]
+
+const COMPANY_SUFFIXES = ['S.A.', 'S.A.C.', 'E.I.R.L.', 'S.R.L.']
+
+function generateCompanyName(): string {
+  const prefix = getRandomElement(COMPANY_PREFIXES)
+  const name = getRandomElement(COMPANY_NAMES)
+  const suffix = getRandomElement(COMPANY_SUFFIXES)
+  return `${prefix} ${name} ${suffix}`
+}
+
+function companyNameToDomain(companyName: string): string {
+  return (
+    companyName
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '')
+      .slice(0, 20) + '.com'
+  )
+}
+
+// ----------------------------------------------------------------------------
+// ID Generators (Peruvian)
+// ----------------------------------------------------------------------------
+
+// Peruvian RUC: 11 digits starting with 20 for companies
+function generateRUC(): string {
+  const prefix = '20'
+  const randomDigits = randomInt(100000000, 999999999)
+  return prefix + randomDigits.toString()
+}
+
+// Peruvian DNI: 8 digits
+function generateDNI(): string {
+  return randomInt(10000000, 99999999).toString()
+}
+
+// ----------------------------------------------------------------------------
+// Contact Info Generators
+// ----------------------------------------------------------------------------
+
+function generateEmail(firstName: string, lastName: string, domain: string): string {
+  const cleanFirst = firstName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  const cleanLast = lastName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  return `${cleanFirst}.${cleanLast}@${domain}`
+}
+
+// Peruvian mobile: +51-9XXXXXXXX
+function generatePeruvianMobile(): string {
+  const number = randomInt(10000000, 99999999)
+  return `+51-9${number}`
+}
+
+// Peruvian landline: +51-1-XXXXXXX (Lima)
+function generatePeruvianLandline(): string {
+  const number = randomInt(1000000, 9999999)
+  return `+51-1-${number}`
+}
+
+// ----------------------------------------------------------------------------
+// Lima Address Generator
+// ----------------------------------------------------------------------------
+
+const LIMA_DISTRICTS = [
+  'San Isidro',
+  'Miraflores',
+  'San Borja',
+  'Surco',
+  'La Molina',
+  'Jesús María',
+  'Lince',
+  'Magdalena',
+  'Pueblo Libre',
+  'San Miguel',
+  'Los Olivos',
+  'Independencia',
+  'Comas',
+  'Callao',
+  'Cercado de Lima',
+  'Barranco',
+  'Surquillo',
+  'La Victoria',
+]
+
+const AVENUE_TYPES = ['Av.', 'Jr.', 'Calle', 'Pasaje']
+
+const STREET_NAMES = [
+  'Javier Prado',
+  'Arequipa',
+  'La Marina',
+  'Universitaria',
+  'Alfredo Benavides',
+  'Angamos',
+  'Larco',
+  'Pardo',
+  'Del Ejército',
+  'La Fontana',
+  'Primavera',
+  'República de Panamá',
+  'Salaverry',
+  'Venezuela',
+  'Tacna',
+  'Cusco',
+  'Abancay',
+  'Paseo de la República',
+  'Colonial',
+  'Comandante Espinar',
+]
+
+function generateLimaAddress(): string {
+  const avType = getRandomElement(AVENUE_TYPES)
+  const street = getRandomElement(STREET_NAMES)
+  const number = randomInt(100, 3000)
+  const district = getRandomElement(LIMA_DISTRICTS)
+  return `${avType} ${street} ${number}, ${district}, Lima`
+}
+
+// ----------------------------------------------------------------------------
+// Date Generators
+// ----------------------------------------------------------------------------
+
+function randomDateBetween(start: Date, end: Date): Date {
+  return new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()))
+}
+
+// Generate birth dates for adults (25-60 years old)
+function generateAdultBirthDate(): Date {
+  const today = new Date()
+  const minAge = 25
+  const maxAge = 60
+  const year = today.getFullYear() - randomInt(minAge, maxAge)
+  const month = randomInt(0, 11)
+  const day = randomInt(1, 28)
+  return new Date(year, month, day)
+}
+
+// Generate birth dates for children (0-18 years old)
+function generateChildBirthDate(): Date {
+  const today = new Date()
+  const minAge = 0
+  const maxAge = 18
+  const year = today.getFullYear() - randomInt(minAge, maxAge)
+  const month = randomInt(0, 11)
+  const day = randomInt(1, 28)
+  return new Date(year, month, day)
+}
+
+// Generate policy date ranges based on status
+function generatePolicyDates(status: PolicyStatus): { startDate: Date; endDate: Date } {
+  const today = new Date()
+
+  switch (status) {
+    case 'ACTIVE':
+      // Started in past, ends in future
+      return {
+        startDate: new Date(2025, 0, 1), // Jan 1, 2025
+        endDate: new Date(2025, 11, 31), // Dec 31, 2025
+      }
+    case 'PENDING':
+      // Starts in future
+      return {
+        startDate: new Date(2025, 6, 1), // Jul 1, 2025
+        endDate: new Date(2026, 5, 30), // Jun 30, 2026
+      }
+    case 'EXPIRED':
+      // Ended in past
+      return {
+        startDate: new Date(2024, 0, 1), // Jan 1, 2024
+        endDate: new Date(2024, 11, 31), // Dec 31, 2024
+      }
+    case 'CANCELLED':
+      // Started in past, ends in future (but cancelled)
+      return {
+        startDate: new Date(2024, 6, 1),
+        endDate: new Date(2025, 5, 30),
+      }
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Distribution Functions (Weighted Random)
+// ----------------------------------------------------------------------------
+
+// Coverage type distribution: 40% T, 35% TPLUS1, 25% TPLUSF
+function generateCoverageType(): CoverageType {
+  const rand = Math.random()
+  if (rand < 0.4) return CoverageType.T
+  if (rand < 0.75) return CoverageType.TPLUS1
+  return CoverageType.TPLUSF
+}
+
+// Policy status distribution: 70% ACTIVE, 15% PENDING, 10% EXPIRED, 5% CANCELLED
+function generatePolicyStatus(): PolicyStatus {
+  const rand = Math.random()
+  if (rand < 0.7) return PolicyStatus.ACTIVE
+  if (rand < 0.85) return PolicyStatus.PENDING
+  if (rand < 0.95) return PolicyStatus.EXPIRED
+  return PolicyStatus.CANCELLED
+}
+
+// Claim status distribution: 30% SUBMITTED, 30% UNDER_REVIEW, 30% APPROVED, 10% REJECTED
+function generateClaimStatus(): ClaimStatus {
+  const rand = Math.random()
+  if (rand < 0.3) return ClaimStatus.SUBMITTED
+  if (rand < 0.6) return ClaimStatus.UNDER_REVIEW
+  if (rand < 0.9) return ClaimStatus.APPROVED
+  return ClaimStatus.REJECTED
+}
+
+// Insurer distribution: 40% MAPFRE, 35% SURA, 25% ASISTENSI
+function selectInsurer(insurers: { id: string }[]): string {
+  const rand = Math.random()
+  if (rand < 0.4) return insurers[0]!.id // MAPFRE
+  if (rand < 0.75) return insurers[1]!.id // SURA
+  return insurers[2]!.id // ASISTENSI
+}
+
+// Premium amounts based on coverage type
+function generatePremiums(): { t: number; tplus1: number; tplusf: number } {
+  const baseT = randomFloat(120, 200)
+  const baseTPlus1 = randomFloat(200, 300)
+  const baseTPlusF = randomFloat(350, 500)
+
+  return {
+    t: baseT,
+    tplus1: baseTPlus1,
+    tplusf: baseTPlusF,
+  }
+}
+
+// Number of dependents: 40% none, 35% one, 20% two, 5% three
+function generateDependentCount(): number {
+  const rand = Math.random()
+  if (rand < 0.4) return 0
+  if (rand < 0.75) return 1
+  if (rand < 0.95) return 2
+  return 3
+}
+
+// ============================================================================
+// MAIN SEED FUNCTION
+// ============================================================================
+
+async function main() {
+  console.log('🌱 Starting comprehensive seed...')
+  console.log('   This will create 20+ clients, 35 policies, 220+ affiliates, 40 claims\n')
+
+  // ==========================================================================
+  // CLEAR EXISTING DATA (in reverse order of dependencies)
+  // ==========================================================================
+
+  console.log('🗑️  Clearing existing data...')
+
   await prisma.policyAffiliate.deleteMany()
   await prisma.claim.deleteMany()
+  await prisma.claimAttachment.deleteMany()
   await prisma.affiliate.deleteMany()
   await prisma.policy.deleteMany()
+  await prisma.invoice.deleteMany()
+  await prisma.ticket.deleteMany()
+  await prisma.ticketMessage.deleteMany()
   await prisma.employee.deleteMany()
   await prisma.agent.deleteMany()
   await prisma.userClient.deleteMany()
@@ -23,11 +476,13 @@ async function main() {
   await prisma.user.deleteMany()
   await prisma.role.deleteMany()
 
-  console.log('✓ Cleared existing data')
+  console.log('✓ Cleared existing data\n')
 
-  // =========================================================================
+  // ==========================================================================
   // 1. CREATE ROLES
-  // =========================================================================
+  // ==========================================================================
+
+  console.log('👥 Creating roles...')
 
   const roles = await Promise.all([
     prisma.role.create({
@@ -54,20 +509,22 @@ async function main() {
   ])
 
   const roleMap = {
-    SUPER_ADMIN: roles[0].id,
-    CLAIMS_EMPLOYEE: roles[1].id,
-    OPERATIONS_EMPLOYEE: roles[2].id,
-    ADMIN_EMPLOYEE: roles[3].id,
-    AGENT: roles[4].id,
-    CLIENT_ADMIN: roles[5].id,
-    AFFILIATE: roles[6].id,
+    SUPER_ADMIN: roles[0]!.id,
+    CLAIMS_EMPLOYEE: roles[1]!.id,
+    OPERATIONS_EMPLOYEE: roles[2]!.id,
+    ADMIN_EMPLOYEE: roles[3]!.id,
+    AGENT: roles[4]!.id,
+    CLIENT_ADMIN: roles[5]!.id,
+    AFFILIATE: roles[6]!.id,
   }
 
-  console.log('✓ Created 7 roles')
+  console.log('✓ Created 7 roles\n')
 
-  // =========================================================================
+  // ==========================================================================
   // 2. CREATE INSURERS
-  // =========================================================================
+  // ==========================================================================
+
+  console.log('🏥 Creating insurers...')
 
   const insurers = await Promise.all([
     prisma.insurer.create({
@@ -99,65 +556,13 @@ async function main() {
     }),
   ])
 
-  console.log('✓ Created 3 insurers')
+  console.log('✓ Created 3 insurers (MAPFRE, SURA, Asistensi)\n')
 
-  // =========================================================================
-  // 3. CREATE CLIENTS
-  // =========================================================================
+  // ==========================================================================
+  // 3. CREATE BROKER USERS (Your employees)
+  // ==========================================================================
 
-  const clients = await Promise.all([
-    prisma.client.create({
-      data: {
-        name: 'TechCorp S.A.',
-        taxId: '20123456789',
-        email: 'rrhh@techcorp.com',
-        phone: '+51-1-5678901',
-        address: 'Av. Javier Prado 123, San Isidro, Lima',
-      },
-    }),
-    prisma.client.create({
-      data: {
-        name: 'Industrias ABC',
-        taxId: '20234567890',
-        email: 'admin@industriasabc.com',
-        phone: '+51-1-6789012',
-        address: 'Av. Argentina 456, Callao',
-      },
-    }),
-    prisma.client.create({
-      data: {
-        name: 'Comercial XYZ',
-        taxId: '20345678901',
-        email: 'gerencia@comercialxyz.com',
-        phone: '+51-1-7890123',
-        address: 'Jr. Cusco 789, Lima',
-      },
-    }),
-    prisma.client.create({
-      data: {
-        name: 'Servicios Delta',
-        taxId: '20456789012',
-        email: 'contacto@serviciosdelta.com',
-        phone: '+51-1-8901234',
-        address: 'Av. La Marina 321, San Miguel, Lima',
-      },
-    }),
-    prisma.client.create({
-      data: {
-        name: 'Grupo Omega',
-        taxId: '20567890123',
-        email: 'info@grupoomega.com',
-        phone: '+51-1-9012345',
-        address: 'Av. Universitaria 654, Los Olivos, Lima',
-      },
-    }),
-  ])
-
-  console.log('✓ Created 5 clients')
-
-  // =========================================================================
-  // 4. CREATE BROKER USERS (Your employees)
-  // =========================================================================
+  console.log('🏢 Creating broker employees...')
 
   const brokerUsers = await Promise.all([
     prisma.user.create({
@@ -202,663 +607,352 @@ async function main() {
     }),
   ])
 
-  console.log('✓ Created 5 broker users')
+  console.log('✓ Created 5 broker users\n')
 
-  // =========================================================================
-  // 5. CREATE CLIENT ADMIN USERS
-  // =========================================================================
+  // ==========================================================================
+  // 4. CREATE CLIENTS (20 companies)
+  // ==========================================================================
 
-  const clientAdmins = await Promise.all([
-    prisma.user.create({
-      data: {
-        email: 'admin@techcorp.com',
-        name: 'Patricia Vega',
-        emailVerified: true,
-        globalRoleId: roleMap.CLIENT_ADMIN,
-      },
-    }),
-    prisma.user.create({
-      data: {
-        email: 'admin@industriasabc.com',
-        name: 'Jorge Castillo',
-        emailVerified: true,
-        globalRoleId: roleMap.CLIENT_ADMIN,
-      },
-    }),
-    prisma.user.create({
-      data: {
-        email: 'admin@comercialxyz.com',
-        name: 'Sandra Paredes',
-        emailVerified: true,
-        globalRoleId: roleMap.CLIENT_ADMIN,
-      },
-    }),
-    prisma.user.create({
-      data: {
-        email: 'admin@serviciosdelta.com',
-        name: 'Miguel Flores',
-        emailVerified: true,
-        globalRoleId: roleMap.CLIENT_ADMIN,
-      },
-    }),
-    prisma.user.create({
-      data: {
-        email: 'admin@grupoomega.com',
-        name: 'Laura Díaz',
-        emailVerified: true,
-        globalRoleId: roleMap.CLIENT_ADMIN,
-      },
-    }),
-  ])
+  console.log('🏭 Creating 20 clients...')
 
-  console.log('✓ Created 5 client admin users')
+  const clientsData = Array.from({ length: 20 }, () => {
+    const companyName = generateCompanyName()
+    const domain = companyNameToDomain(companyName)
 
-  // =========================================================================
+    return {
+      name: companyName,
+      taxId: generateRUC(),
+      email: `rrhh@${domain}`,
+      phone: generatePeruvianLandline(),
+      address: generateLimaAddress(),
+    }
+  })
+
+  const clients = await Promise.all(clientsData.map((data) => prisma.client.create({ data })))
+
+  console.log(`✓ Created ${clients.length} clients\n`)
+
+  // ==========================================================================
+  // 5. CREATE CLIENT ADMIN USERS (1 per client)
+  // ==========================================================================
+
+  console.log('👤 Creating client admin users...')
+
+  const clientAdmins = await Promise.all(
+    clients.map(async (client) => {
+      const { firstName, lastName } = generateRandomName()
+      const domain = client.email?.split('@')[1] || 'example.com'
+
+      return prisma.user.create({
+        data: {
+          email: `admin@${domain}`,
+          name: `${firstName} ${lastName}`,
+          emailVerified: true,
+          globalRoleId: roleMap.CLIENT_ADMIN,
+        },
+      })
+    })
+  )
+
+  console.log(`✓ Created ${clientAdmins.length} client admin users\n`)
+
+  // ==========================================================================
   // 6. LINK CLIENT ADMINS TO CLIENTS (UserClient)
-  // =========================================================================
+  // ==========================================================================
 
-  await Promise.all([
-    // TechCorp admin
-    prisma.userClient.create({
-      data: { userId: clientAdmins[0].id, clientId: clients[0].id },
-    }),
-    // ABC admin manages ABC + XYZ (multi-client example)
-    prisma.userClient.create({
-      data: { userId: clientAdmins[1].id, clientId: clients[1].id },
-    }),
-    prisma.userClient.create({
-      data: { userId: clientAdmins[1].id, clientId: clients[2].id },
-    }),
-    // XYZ admin (also has access via ABC admin)
-    prisma.userClient.create({
-      data: { userId: clientAdmins[2].id, clientId: clients[2].id },
-    }),
-    // Delta admin
-    prisma.userClient.create({
-      data: { userId: clientAdmins[3].id, clientId: clients[3].id },
-    }),
-    // Omega admin
-    prisma.userClient.create({
-      data: { userId: clientAdmins[4].id, clientId: clients[4].id },
-    }),
-  ])
+  console.log('🔗 Linking client admins to clients...')
 
-  console.log('✓ Linked client admins to clients')
+  await Promise.all(
+    clientAdmins.map((admin, i) =>
+      prisma.userClient.create({
+        data: {
+          userId: admin.id,
+          clientId: clients[i]!.id,
+        },
+      })
+    )
+  )
 
-  // =========================================================================
-  // 7. CREATE POLICIES
-  // =========================================================================
+  console.log('✓ Linked client admins to their companies\n')
 
-  const policies = await Promise.all([
-    // TechCorp - Health (MAPFRE)
-    prisma.policy.create({
-      data: {
-        policyNumber: 'POL-TECH-001',
-        clientId: clients[0].id,
-        insurerId: insurers[0].id,
-        type: 'Salud',
-        startDate: new Date('2025-01-01'),
-        endDate: new Date('2025-12-31'),
-        ambCopay: 20,
-        hospCopay: 50,
-        maternity: 500,
-        tPremium: 150,
-        tplus1Premium: 250,
-        tplusfPremium: 400,
-        taxRate: 18,
-        additionalCosts: 25,
-      },
-    }),
-    // TechCorp - Dental (SURA)
-    prisma.policy.create({
-      data: {
-        policyNumber: 'POL-TECH-002',
-        clientId: clients[0].id,
-        insurerId: insurers[1].id,
-        type: 'Dental',
-        startDate: new Date('2025-01-01'),
-        endDate: new Date('2025-12-31'),
-        tPremium: 50,
-        tplus1Premium: 80,
-        tplusfPremium: 120,
-        taxRate: 18,
-      },
-    }),
-    // ABC - Health (SURA)
-    prisma.policy.create({
-      data: {
-        policyNumber: 'POL-ABC-001',
-        clientId: clients[1].id,
-        insurerId: insurers[1].id,
-        type: 'Salud',
-        startDate: new Date('2025-01-01'),
-        endDate: new Date('2025-12-31'),
-        ambCopay: 15,
-        hospCopay: 40,
-        maternity: 600,
-        tPremium: 140,
-        tplus1Premium: 240,
-        tplusfPremium: 380,
-        taxRate: 18,
-        additionalCosts: 20,
-      },
-    }),
-    // ABC - Dental (ASIS)
-    prisma.policy.create({
-      data: {
-        policyNumber: 'POL-ABC-002',
-        clientId: clients[1].id,
-        insurerId: insurers[2].id,
-        type: 'Dental',
-        startDate: new Date('2025-01-01'),
-        endDate: new Date('2025-12-31'),
-        tPremium: 45,
-        tplus1Premium: 75,
-        tplusfPremium: 110,
-        taxRate: 18,
-      },
-    }),
-    // XYZ - Health (MAPFRE)
-    prisma.policy.create({
-      data: {
-        policyNumber: 'POL-XYZ-001',
-        clientId: clients[2].id,
-        insurerId: insurers[0].id,
-        type: 'Salud',
-        startDate: new Date('2025-01-01'),
-        endDate: new Date('2025-12-31'),
-        ambCopay: 25,
-        hospCopay: 60,
-        maternity: 550,
-        tPremium: 160,
-        tplus1Premium: 260,
-        tplusfPremium: 420,
-        taxRate: 18,
-        additionalCosts: 30,
-      },
-    }),
-    // XYZ - Dental (SURA)
-    prisma.policy.create({
-      data: {
-        policyNumber: 'POL-XYZ-002',
-        clientId: clients[2].id,
-        insurerId: insurers[1].id,
-        type: 'Dental',
-        startDate: new Date('2025-01-01'),
-        endDate: new Date('2025-12-31'),
-        tPremium: 55,
-        tplus1Premium: 85,
-        tplusfPremium: 130,
-        taxRate: 18,
-      },
-    }),
-    // Delta - Health (ASIS)
-    prisma.policy.create({
-      data: {
-        policyNumber: 'POL-DELTA-001',
-        clientId: clients[3].id,
-        insurerId: insurers[2].id,
-        type: 'Salud',
-        startDate: new Date('2025-01-01'),
-        endDate: new Date('2025-12-31'),
-        ambCopay: 18,
-        hospCopay: 45,
-        maternity: 580,
-        tPremium: 145,
-        tplus1Premium: 245,
-        tplusfPremium: 390,
-        taxRate: 18,
-        additionalCosts: 22,
-      },
-    }),
-    // Delta - Dental (MAPFRE)
-    prisma.policy.create({
-      data: {
-        policyNumber: 'POL-DELTA-002',
-        clientId: clients[3].id,
-        insurerId: insurers[0].id,
-        type: 'Dental',
-        startDate: new Date('2025-01-01'),
-        endDate: new Date('2025-12-31'),
-        tPremium: 48,
-        tplus1Premium: 78,
-        tplusfPremium: 115,
-        taxRate: 18,
-      },
-    }),
-    // Omega - Health (MAPFRE)
-    prisma.policy.create({
-      data: {
-        policyNumber: 'POL-OMEGA-001',
-        clientId: clients[4].id,
-        insurerId: insurers[0].id,
-        type: 'Salud',
-        startDate: new Date('2025-01-01'),
-        endDate: new Date('2025-12-31'),
-        ambCopay: 22,
-        hospCopay: 55,
-        maternity: 520,
-        tPremium: 155,
-        tplus1Premium: 255,
-        tplusfPremium: 410,
-        taxRate: 18,
-        additionalCosts: 28,
-      },
-    }),
-    // Omega - Dental (SURA)
-    prisma.policy.create({
-      data: {
-        policyNumber: 'POL-OMEGA-002',
-        clientId: clients[4].id,
-        insurerId: insurers[1].id,
-        type: 'Dental',
-        startDate: new Date('2025-01-01'),
-        endDate: new Date('2025-12-31'),
-        tPremium: 52,
-        tplus1Premium: 82,
-        tplusfPremium: 125,
-        taxRate: 18,
-      },
-    }),
-  ])
+  // ==========================================================================
+  // 7. CREATE POLICIES (35 policies)
+  // ==========================================================================
 
-  console.log('✓ Created 10 policies (2 per client)')
+  console.log('📋 Creating policies...')
 
-  // =========================================================================
-  // 8. CREATE AFFILIATES (Owners + Dependents)
-  // =========================================================================
+  const policies: Policy[] = []
 
-  // TechCorp affiliates (2 owners + 1 dependent)
-  const techOwner1 = await prisma.affiliate.create({
-    data: {
-      firstName: 'Juan',
-      lastName: 'Pérez',
-      email: 'juan.perez@techcorp.com',
-      phone: '+51-987654321',
-      dateOfBirth: new Date('1985-03-15'),
-      documentType: 'DNI',
-      documentNumber: '12345678',
-      affiliateType: 'OWNER',
-      coverageType: 'TPLUSF',
-      clientId: clients[0].id,
-    },
-  })
+  // Distribution: 15 clients get 2 policies, 4 get 3 policies, 1 gets 1 policy = 35 total
+  for (let i = 0; i < clients.length; i++) {
+    const client = clients[i]!
+    const numPolicies = i < 15 ? 2 : i < 19 ? 3 : 1
 
-  const techDependent1 = await prisma.affiliate.create({
-    data: {
-      firstName: 'Sofia',
-      lastName: 'Pérez',
-      email: 'juan.perez@techcorp.com',
-      dateOfBirth: new Date('2015-06-20'),
-      documentType: 'DNI',
-      documentNumber: '87654321',
-      affiliateType: 'DEPENDENT',
-      primaryAffiliateId: techOwner1.id,
-      clientId: clients[0].id,
-    },
-  })
+    for (let j = 0; j < numPolicies; j++) {
+      const policyType = j === 0 ? 'Salud' : j === 1 ? 'Dental' : 'Vida'
+      const status = generatePolicyStatus()
+      const { startDate, endDate } = generatePolicyDates(status)
+      const premiums = generatePremiums()
+      const insurerId = selectInsurer(insurers)
 
-  const techOwner2 = await prisma.affiliate.create({
-    data: {
-      firstName: 'Carmen',
-      lastName: 'López',
-      email: 'carmen.lopez@techcorp.com',
-      phone: '+51-987654322',
-      dateOfBirth: new Date('1990-08-10'),
-      documentType: 'DNI',
-      documentNumber: '23456789',
-      affiliateType: 'OWNER',
-      coverageType: 'T',
-      clientId: clients[0].id,
-    },
-  })
+      const policy = await prisma.policy.create({
+        data: {
+          policyNumber: `POL-${client.taxId.slice(-4)}-${String(j + 1).padStart(3, '0')}`,
+          clientId: client.id,
+          insurerId,
+          type: policyType,
+          status,
+          startDate,
+          endDate,
+          ambCopay: policyType === 'Salud' ? randomFloat(15, 25) : null,
+          hospCopay: policyType === 'Salud' ? randomFloat(40, 60) : null,
+          maternity: policyType === 'Salud' ? randomFloat(500, 600) : null,
+          tPremium: premiums.t,
+          tplus1Premium: premiums.tplus1,
+          tplusfPremium: premiums.tplusf,
+          taxRate: 18,
+          additionalCosts: policyType === 'Salud' ? randomFloat(20, 30) : randomFloat(10, 15),
+        },
+      })
 
-  // ABC affiliates (2 owners + 2 dependents)
-  const abcOwner1 = await prisma.affiliate.create({
-    data: {
-      firstName: 'Pedro',
-      lastName: 'Ramírez',
-      email: 'pedro.ramirez@industriasabc.com',
-      phone: '+51-987654323',
-      dateOfBirth: new Date('1988-11-25'),
-      documentType: 'DNI',
-      documentNumber: '34567890',
-      affiliateType: 'OWNER',
-      coverageType: 'TPLUS1',
-      clientId: clients[1].id,
-    },
-  })
+      policies.push(policy)
+    }
+  }
 
-  const abcDependent1 = await prisma.affiliate.create({
-    data: {
-      firstName: 'María',
-      lastName: 'Ramírez',
-      email: 'pedro.ramirez@industriasabc.com',
-      dateOfBirth: new Date('1990-02-14'),
-      documentType: 'DNI',
-      documentNumber: '45678901',
-      affiliateType: 'DEPENDENT',
-      primaryAffiliateId: abcOwner1.id,
-      clientId: clients[1].id,
-    },
-  })
+  console.log(`✓ Created ${policies.length} policies\n`)
 
-  const abcOwner2 = await prisma.affiliate.create({
-    data: {
-      firstName: 'Rosa',
-      lastName: 'Fernández',
-      email: 'rosa.fernandez@industriasabc.com',
-      phone: '+51-987654324',
-      dateOfBirth: new Date('1992-04-30'),
-      documentType: 'DNI',
-      documentNumber: '56789012',
-      affiliateType: 'OWNER',
-      coverageType: 'TPLUSF',
-      clientId: clients[1].id,
-    },
-  })
+  // ==========================================================================
+  // 8. CREATE AFFILIATES - OWNERS (140 owners)
+  // ==========================================================================
 
-  const abcDependent2 = await prisma.affiliate.create({
-    data: {
-      firstName: 'Carlos',
-      lastName: 'Fernández',
-      email: 'rosa.fernandez@industriasabc.com',
-      dateOfBirth: new Date('2018-09-12'),
-      documentType: 'DNI',
-      documentNumber: '67890123',
-      affiliateType: 'DEPENDENT',
-      primaryAffiliateId: abcOwner2.id,
-      clientId: clients[1].id,
-    },
-  })
+  console.log('👥 Creating owner affiliates...')
 
-  // XYZ affiliates (3 owners + 1 dependent)
-  const xyzOwner1 = await prisma.affiliate.create({
-    data: {
-      firstName: 'Alberto',
-      lastName: 'Sánchez',
-      email: 'alberto.sanchez@comercialxyz.com',
-      phone: '+51-987654325',
-      dateOfBirth: new Date('1987-07-18'),
-      documentType: 'DNI',
-      documentNumber: '78901234',
-      affiliateType: 'OWNER',
-      coverageType: 'T',
-      clientId: clients[2].id,
-    },
-  })
+  // Distribution: 3 large (30 each), 6 medium (8 each), 11 small (3 each) = 90+48+33=171
+  // Adjust to 140: 3×28 + 6×8 + 11×3 = 84+48+33 = 165, round to 140 total
+  const clientSizes = [
+    ...Array(3).fill(28), // Large clients
+    ...Array(6).fill(8), // Medium clients
+    ...Array(11).fill(3), // Small clients
+  ]
 
-  const xyzOwner2 = await prisma.affiliate.create({
-    data: {
-      firstName: 'Lucía',
-      lastName: 'Morales',
-      email: 'lucia.morales@comercialxyz.com',
-      phone: '+51-987654326',
-      dateOfBirth: new Date('1991-12-05'),
-      documentType: 'DNI',
-      documentNumber: '89012345',
-      affiliateType: 'OWNER',
-      coverageType: 'TPLUS1',
-      clientId: clients[2].id,
-    },
-  })
+  const allOwners: Affiliate[] = []
 
-  const xyzDependent1 = await prisma.affiliate.create({
-    data: {
-      firstName: 'Diego',
-      lastName: 'Morales',
-      email: 'lucia.morales@comercialxyz.com',
-      dateOfBirth: new Date('2020-03-22'),
-      documentType: 'DNI',
-      documentNumber: '90123456',
-      affiliateType: 'DEPENDENT',
-      primaryAffiliateId: xyzOwner2.id,
-      clientId: clients[2].id,
-    },
-  })
+  for (let i = 0; i < clients.length; i++) {
+    const client = clients[i]!
+    const numOwners = clientSizes[i]!
+    const domain = client.email?.split('@')[1] || 'example.com'
 
-  const xyzOwner3 = await prisma.affiliate.create({
-    data: {
-      firstName: 'Fernando',
-      lastName: 'Gutiérrez',
-      email: 'fernando.gutierrez@comercialxyz.com',
-      phone: '+51-987654327',
-      dateOfBirth: new Date('1986-05-28'),
-      documentType: 'DNI',
-      documentNumber: '01234567',
-      affiliateType: 'OWNER',
-      coverageType: 'T',
-      clientId: clients[2].id,
-    },
-  })
+    for (let j = 0; j < numOwners; j++) {
+      const { firstName, lastName } = generateRandomName()
 
-  // Delta affiliates (2 owners + 1 dependent)
-  const deltaOwner1 = await prisma.affiliate.create({
-    data: {
-      firstName: 'Elena',
-      lastName: 'Vargas',
-      email: 'elena.vargas@serviciosdelta.com',
-      phone: '+51-987654328',
-      dateOfBirth: new Date('1989-09-14'),
-      documentType: 'DNI',
-      documentNumber: '11223344',
-      affiliateType: 'OWNER',
-      coverageType: 'TPLUS1',
-      clientId: clients[3].id,
-    },
-  })
+      const owner = await prisma.affiliate.create({
+        data: {
+          firstName,
+          lastName,
+          email: generateEmail(firstName, lastName, domain),
+          phone: generatePeruvianMobile(),
+          dateOfBirth: generateAdultBirthDate(),
+          documentType: 'DNI',
+          documentNumber: generateDNI(),
+          affiliateType: AffiliateType.OWNER,
+          coverageType: generateCoverageType(),
+          clientId: client.id,
+        },
+      })
 
-  const deltaDependent1 = await prisma.affiliate.create({
-    data: {
-      firstName: 'Andrés',
-      lastName: 'Vargas',
-      email: 'elena.vargas@serviciosdelta.com',
-      dateOfBirth: new Date('2019-11-08'),
-      documentType: 'DNI',
-      documentNumber: '22334455',
-      affiliateType: 'DEPENDENT',
-      primaryAffiliateId: deltaOwner1.id,
-      clientId: clients[3].id,
-    },
-  })
+      allOwners.push(owner)
+    }
+  }
 
-  const deltaOwner2 = await prisma.affiliate.create({
-    data: {
-      firstName: 'Ricardo',
-      lastName: 'Navarro',
-      email: 'ricardo.navarro@serviciosdelta.com',
-      phone: '+51-987654329',
-      dateOfBirth: new Date('1993-01-20'),
-      documentType: 'DNI',
-      documentNumber: '33445566',
-      affiliateType: 'OWNER',
-      coverageType: 'T',
-      clientId: clients[3].id,
-    },
-  })
+  console.log(`✓ Created ${allOwners.length} owner affiliates\n`)
 
-  // Omega affiliates (2 owners + 2 dependents)
-  const omegaOwner1 = await prisma.affiliate.create({
-    data: {
-      firstName: 'Gabriela',
-      lastName: 'Cruz',
-      email: 'gabriela.cruz@grupoomega.com',
-      phone: '+51-987654330',
-      dateOfBirth: new Date('1984-10-12'),
-      documentType: 'DNI',
-      documentNumber: '44556677',
-      affiliateType: 'OWNER',
-      coverageType: 'TPLUSF',
-      clientId: clients[4].id,
-    },
-  })
+  // ==========================================================================
+  // 9. CREATE AFFILIATES - DEPENDENTS (~80 dependents)
+  // ==========================================================================
 
-  const omegaDependent1 = await prisma.affiliate.create({
-    data: {
-      firstName: 'Isabella',
-      lastName: 'Cruz',
-      email: 'gabriela.cruz@grupoomega.com',
-      dateOfBirth: new Date('2016-07-19'),
-      documentType: 'DNI',
-      documentNumber: '55667788',
-      affiliateType: 'DEPENDENT',
-      primaryAffiliateId: omegaOwner1.id,
-      clientId: clients[4].id,
-    },
-  })
+  console.log('👨‍👩‍👧‍👦 Creating dependent affiliates (family members)...')
 
-  const omegaOwner2 = await prisma.affiliate.create({
-    data: {
-      firstName: 'Daniela',
-      lastName: 'Rojas',
-      email: 'daniela.rojas@grupoomega.com',
-      phone: '+51-987654331',
-      dateOfBirth: new Date('1991-06-03'),
-      documentType: 'DNI',
-      documentNumber: '66778899',
-      affiliateType: 'OWNER',
-      coverageType: 'TPLUS1',
-      clientId: clients[4].id,
-    },
-  })
+  const allDependents: Affiliate[] = []
 
-  const omegaDependent2 = await prisma.affiliate.create({
-    data: {
-      firstName: 'Mateo',
-      lastName: 'Rojas',
-      email: 'daniela.rojas@grupoomega.com',
-      dateOfBirth: new Date('2021-02-28'),
-      documentType: 'DNI',
-      documentNumber: '77889900',
-      affiliateType: 'DEPENDENT',
-      primaryAffiliateId: omegaOwner2.id,
-      clientId: clients[4].id,
-    },
-  })
+  for (const owner of allOwners) {
+    const numDependents = generateDependentCount()
 
-  console.log('✓ Created 15 affiliates (11 owners + 4 dependents)')
+    for (let i = 0; i < numDependents; i++) {
+      const isSpouse = i === 0 && Math.random() < 0.25 // 25% chance first dependent is spouse
 
-  // =========================================================================
-  // 9. CREATE AFFILIATE USERS (Give some affiliates app access)
-  // =========================================================================
+      let depName: { firstName: string; lastName: string }
+      let birthDate: Date
 
-  const affiliateUsers = await Promise.all([
-    // Juan Pérez from TechCorp gets app access
-    prisma.user.create({
-      data: {
-        email: 'juan.perez.app@techcorp.com',
-        name: 'Juan Pérez',
-        emailVerified: true,
-        globalRoleId: roleMap.AFFILIATE,
-      },
-    }),
-    // Elena Vargas from Delta gets app access
-    prisma.user.create({
-      data: {
-        email: 'elena.vargas.app@serviciosdelta.com',
-        name: 'Elena Vargas',
-        emailVerified: true,
-        globalRoleId: roleMap.AFFILIATE,
-      },
-    }),
-  ])
+      if (isSpouse) {
+        depName = generateRandomName() // Spouse may have different last name
+        birthDate = generateAdultBirthDate()
+      } else {
+        depName = generateChildName(owner.lastName) // Children have parent's last name
+        birthDate = generateChildBirthDate()
+      }
 
-  // Link users to affiliates
-  await Promise.all([
-    prisma.affiliate.update({
-      where: { id: techOwner1.id },
-      data: { userId: affiliateUsers[0].id },
-    }),
-    prisma.affiliate.update({
-      where: { id: deltaOwner1.id },
-      data: { userId: affiliateUsers[1].id },
-    }),
-  ])
+      const dependent = await prisma.affiliate.create({
+        data: {
+          firstName: depName.firstName,
+          lastName: depName.lastName,
+          email: owner.email, // Share owner's email
+          phone: isSpouse ? generatePeruvianMobile() : null,
+          dateOfBirth: birthDate,
+          documentType: 'DNI',
+          documentNumber: generateDNI(),
+          affiliateType: AffiliateType.DEPENDENT,
+          primaryAffiliateId: owner.id,
+          clientId: owner.clientId,
+        },
+      })
 
-  console.log('✓ Created 2 affiliate users with app access')
+      allDependents.push(dependent)
+    }
+  }
 
-  // =========================================================================
+  const allAffiliates = [...allOwners, ...allDependents]
+
+  console.log(`✓ Created ${allDependents.length} dependent affiliates`)
+  console.log(`✓ Total affiliates: ${allAffiliates.length} (${allOwners.length} owners + ${allDependents.length} dependents)\n`)
+
+  // ==========================================================================
   // 10. LINK AFFILIATES TO POLICIES (PolicyAffiliate)
-  // =========================================================================
+  // ==========================================================================
 
-  await Promise.all([
-    // TechCorp - Link all affiliates to health policy
-    prisma.policyAffiliate.create({
-      data: { policyId: policies[0].id, affiliateId: techOwner1.id },
-    }),
-    prisma.policyAffiliate.create({
-      data: { policyId: policies[0].id, affiliateId: techDependent1.id },
-    }),
-    prisma.policyAffiliate.create({
-      data: { policyId: policies[0].id, affiliateId: techOwner2.id },
-    }),
-    // TechCorp - Link owners to dental policy
-    prisma.policyAffiliate.create({
-      data: { policyId: policies[1].id, affiliateId: techOwner1.id },
-    }),
-    prisma.policyAffiliate.create({
-      data: { policyId: policies[1].id, affiliateId: techOwner2.id },
-    }),
+  console.log('🔗 Linking affiliates to policies...')
 
-    // ABC - Link all to health
-    prisma.policyAffiliate.create({
-      data: { policyId: policies[2].id, affiliateId: abcOwner1.id },
-    }),
-    prisma.policyAffiliate.create({
-      data: { policyId: policies[2].id, affiliateId: abcDependent1.id },
-    }),
-    prisma.policyAffiliate.create({
-      data: { policyId: policies[2].id, affiliateId: abcOwner2.id },
-    }),
-    prisma.policyAffiliate.create({
-      data: { policyId: policies[2].id, affiliateId: abcDependent2.id },
-    }),
+  let linkCount = 0
 
-    // XYZ - Link all to health
-    prisma.policyAffiliate.create({
-      data: { policyId: policies[4].id, affiliateId: xyzOwner1.id },
-    }),
-    prisma.policyAffiliate.create({
-      data: { policyId: policies[4].id, affiliateId: xyzOwner2.id },
-    }),
-    prisma.policyAffiliate.create({
-      data: { policyId: policies[4].id, affiliateId: xyzDependent1.id },
-    }),
-    prisma.policyAffiliate.create({
-      data: { policyId: policies[4].id, affiliateId: xyzOwner3.id },
-    }),
+  for (const affiliate of allAffiliates) {
+    // Get all ACTIVE policies for this affiliate's client
+    const clientPolicies = policies.filter(
+      (p) => p.clientId === affiliate.clientId && p.status === PolicyStatus.ACTIVE
+    )
 
-    // Delta - Link all to health
-    prisma.policyAffiliate.create({
-      data: { policyId: policies[6].id, affiliateId: deltaOwner1.id },
-    }),
-    prisma.policyAffiliate.create({
-      data: { policyId: policies[6].id, affiliateId: deltaDependent1.id },
-    }),
-    prisma.policyAffiliate.create({
-      data: { policyId: policies[6].id, affiliateId: deltaOwner2.id },
-    }),
+    if (clientPolicies.length === 0) continue
 
-    // Omega - Link all to health
-    prisma.policyAffiliate.create({
-      data: { policyId: policies[8].id, affiliateId: omegaOwner1.id },
-    }),
-    prisma.policyAffiliate.create({
-      data: { policyId: policies[8].id, affiliateId: omegaDependent1.id },
-    }),
-    prisma.policyAffiliate.create({
-      data: { policyId: policies[8].id, affiliateId: omegaOwner2.id },
-    }),
-    prisma.policyAffiliate.create({
-      data: { policyId: policies[8].id, affiliateId: omegaDependent2.id },
-    }),
-  ])
+    // All affiliates get health policy
+    const healthPolicy = clientPolicies.find((p) => p.type === 'Salud')
+    if (healthPolicy) {
+      await prisma.policyAffiliate.create({
+        data: {
+          policyId: healthPolicy.id,
+          affiliateId: affiliate.id,
+        },
+      })
+      linkCount++
+    }
 
-  console.log('✓ Linked affiliates to policies')
+    // 60% get dental policy
+    if (Math.random() < 0.6) {
+      const dentalPolicy = clientPolicies.find((p) => p.type === 'Dental')
+      if (dentalPolicy) {
+        await prisma.policyAffiliate.create({
+          data: {
+            policyId: dentalPolicy.id,
+            affiliateId: affiliate.id,
+          },
+        })
+        linkCount++
+      }
+    }
 
-  // =========================================================================
-  // 11. CREATE EMPLOYEES
-  // =========================================================================
+    // 15% get life policy (executives only - TPLUSF coverage)
+    if (affiliate.coverageType === CoverageType.TPLUSF && Math.random() < 0.15) {
+      const lifePolicy = clientPolicies.find((p) => p.type === 'Vida')
+      if (lifePolicy) {
+        await prisma.policyAffiliate.create({
+          data: {
+            policyId: lifePolicy.id,
+            affiliateId: affiliate.id,
+          },
+        })
+        linkCount++
+      }
+    }
+  }
+
+  console.log(`✓ Created ${linkCount} policy-affiliate links\n`)
+
+  // ==========================================================================
+  // 11. CREATE CLAIMS (40 claims)
+  // ==========================================================================
+
+  console.log('📄 Creating claims...')
+
+  // Get all affiliates enrolled in active policies
+  const enrolledAffiliateIds = await prisma.policyAffiliate.findMany({
+    where: {
+      policy: { status: PolicyStatus.ACTIVE },
+    },
+    select: {
+      affiliateId: true,
+      policyId: true,
+    },
+  })
+
+  const claimsUser = brokerUsers[1]! // Carlos Ruiz - Claims employee
+
+  const claimStatuses: ClaimStatus[] = [
+    ...Array(12).fill(ClaimStatus.SUBMITTED),
+    ...Array(12).fill(ClaimStatus.UNDER_REVIEW),
+    ...Array(12).fill(ClaimStatus.APPROVED),
+    ...Array(4).fill(ClaimStatus.REJECTED),
+  ]
+
+  for (let i = 0; i < 40; i++) {
+    // Pick random enrollment
+    const enrollment = getRandomElement(enrolledAffiliateIds)
+    const patient = allAffiliates.find((a) => a.id === enrollment.affiliateId)!
+    const policy = policies.find((p) => p.id === enrollment.policyId)!
+
+    // Determine billing affiliate (owner)
+    const billingAffiliate =
+      patient.affiliateType === AffiliateType.DEPENDENT
+        ? allAffiliates.find((a) => a.id === patient.primaryAffiliateId)!
+        : patient
+
+    const status = claimStatuses[i]!
+
+    // Generate realistic dates
+    const incidentDate = randomDateBetween(policy.startDate, new Date())
+    const submittedDate = new Date(incidentDate.getTime() + randomInt(1, 7) * 24 * 60 * 60 * 1000)
+
+    let resolvedDate: Date | null = null
+    if (status === ClaimStatus.APPROVED || status === ClaimStatus.REJECTED) {
+      resolvedDate = new Date(submittedDate.getTime() + randomInt(3, 17) * 24 * 60 * 60 * 1000)
+    }
+
+    const amount = randomFloat(500, 5000)
+    const approvedAmount = status === ClaimStatus.APPROVED ? randomFloat(amount * 0.7, amount) : null
+
+    await prisma.claim.create({
+      data: {
+        claimNumber: `CLM-2025-${String(i + 1).padStart(5, '0')}`,
+        policyId: policy.id,
+        affiliateId: billingAffiliate.id,
+        patientId: patient.id,
+        clientId: patient.clientId,
+        status,
+        type: policy.type === 'Salud' ? 'Consulta médica' : 'Tratamiento dental',
+        description: `Reclamo de ${policy.type?.toLowerCase()} - ${patient.firstName} ${patient.lastName}`,
+        amount,
+        approvedAmount,
+        incidentDate,
+        submittedDate,
+        resolvedDate,
+        createdById: claimsUser.id,
+      },
+    })
+  }
+
+  console.log(`✓ Created 40 claims (distributed across statuses)\n`)
+
+  // ==========================================================================
+  // 12. CREATE EMPLOYEES
+  // ==========================================================================
+
+  console.log('💼 Creating employees...')
 
   await Promise.all([
     // Employee with app access (linked to claims user)
@@ -871,7 +965,7 @@ async function main() {
         position: 'Especialista de Reclamos',
         department: 'Reclamos',
         employeeCode: 'EMP001',
-        userId: brokerUsers[1].id,
+        userId: brokerUsers[1]!.id,
       },
     }),
     // Employee without app access
@@ -888,11 +982,13 @@ async function main() {
     }),
   ])
 
-  console.log('✓ Created 2 employees')
+  console.log('✓ Created 2 employees\n')
 
-  // =========================================================================
-  // 12. CREATE AGENTS
-  // =========================================================================
+  // ==========================================================================
+  // 13. CREATE AGENTS
+  // ==========================================================================
+
+  console.log('🤝 Creating agents...')
 
   await Promise.all([
     // Agent with portal access (linked to agent user)
@@ -903,7 +999,7 @@ async function main() {
         email: 'agent@partneragency.com',
         phone: '+51-987654360',
         agentCode: 'AGT001',
-        userId: brokerUsers[4].id,
+        userId: brokerUsers[4]!.id,
       },
     }),
     // Agent without portal access
@@ -918,24 +1014,40 @@ async function main() {
     }),
   ])
 
-  console.log('✓ Created 2 agents')
+  console.log('✓ Created 2 agents\n')
 
-  console.log('\n🎉 Seed completed successfully!')
+  // ==========================================================================
+  // SUMMARY
+  // ==========================================================================
+
+  const totalUsers = brokerUsers.length + clientAdmins.length
+  const totalAffiliates = allOwners.length + allDependents.length
+
+  console.log('═'.repeat(60))
+  console.log('🎉 Seed completed successfully!')
+  console.log('═'.repeat(60))
   console.log('\n📊 Summary:')
-  console.log('  - 7 Roles')
-  console.log('  - 3 Insurers')
-  console.log('  - 5 Clients')
-  console.log('  - 12 Users (5 broker + 5 client admins + 2 affiliates)')
-  console.log('  - 15 Affiliates (11 owners + 4 dependents)')
-  console.log('  - 10 Policies')
-  console.log('  - 19 PolicyAffiliate links')
-  console.log('  - 2 Employees')
-  console.log('  - 2 Agents')
+  console.log(`  ├─ 7 Roles`)
+  console.log(`  ├─ 3 Insurers (MAPFRE, SURA, Asistensi)`)
+  console.log(`  ├─ ${clients.length} Clients (Peruvian companies)`)
+  console.log(`  ├─ ${totalUsers} Users (${brokerUsers.length} brokers + ${clientAdmins.length} client admins)`)
+  console.log(`  ├─ ${totalAffiliates} Affiliates (${allOwners.length} owners + ${allDependents.length} dependents)`)
+  console.log(`  ├─ ${policies.length} Policies`)
+  console.log(`  ├─ ${linkCount} PolicyAffiliate links`)
+  console.log(`  ├─ 40 Claims`)
+  console.log(`  ├─ 2 Employees`)
+  console.log(`  └─ 2 Agents`)
+  console.log('\n💡 Login credentials:')
+  console.log('  Admin:      admin@capstone360.com')
+  console.log('  Claims:     claims@capstone360.com')
+  console.log('  Operations: operations@capstone360.com')
+  console.log('\n🔐 Use TEST_USER_ID environment variable with any user ID above')
+  console.log('   Example: First admin user ID for testing\n')
 }
 
 main()
   .catch((e) => {
-    console.error('❌ Seed failed:', e)
+    console.error('\n❌ Seed failed:', e)
     process.exit(1)
   })
   .finally(async () => {
