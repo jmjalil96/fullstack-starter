@@ -11,7 +11,7 @@ import {
   ClaimActionsCard,
   ClaimDetailsCard,
   EditClaimModal,
-  MetadataCard,
+  ClaimMetadataCard,
   StatusTransitionModal,
   WorkflowStepper,
 } from '../components'
@@ -42,13 +42,13 @@ interface ClaimOverviewTabProps {
 export function ClaimOverviewTab({ claim, onRefetch }: ClaimOverviewTabProps) {
   // Modal state
   const [editModalOpen, setEditModalOpen] = useState(false)
-  const [statusModalOpen, setStatusModalOpen] = useState(false)
+  const [statusTransitionModalOpen, setStatusTransitionModalOpen] = useState(false)
   const [selectedTransition, setSelectedTransition] = useState<ClaimStatus | null>(null)
 
   // Update mutation
   const { updateClaim, loading: updating } = useUpdateClaim({
     onSuccess: () => {
-      setStatusModalOpen(false)
+      setStatusTransitionModalOpen(false)
       setSelectedTransition(null)
       onRefetch()
     },
@@ -82,12 +82,12 @@ export function ClaimOverviewTab({ claim, onRefetch }: ClaimOverviewTabProps) {
             onEdit={() => setEditModalOpen(true)}
             onStatusChange={(status) => {
               setSelectedTransition(status)
-              setStatusModalOpen(true)
+              setStatusTransitionModalOpen(true)
             }}
           />
 
           {/* Metadata Card (created by, dates) */}
-          <MetadataCard claim={claim} />
+          <ClaimMetadataCard claim={claim} />
         </div>
       </div>
 
@@ -109,9 +109,9 @@ export function ClaimOverviewTab({ claim, onRefetch }: ClaimOverviewTabProps) {
       {/* Status Transition Modal - Confirmation with requirements */}
       {selectedTransition && (
         <StatusTransitionModal
-          isOpen={statusModalOpen}
+          isOpen={statusTransitionModalOpen}
           onClose={() => {
-            setStatusModalOpen(false)
+            setStatusTransitionModalOpen(false)
             setSelectedTransition(null)
           }}
           claim={claim}

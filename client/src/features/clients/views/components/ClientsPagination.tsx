@@ -2,16 +2,7 @@
  * ClientsPagination - Pagination controls for clients list
  */
 
-/**
- * Pagination metadata interface (mirrors backend)
- */
-interface PaginationMetadata {
-  total: number
-  page: number
-  limit: number
-  totalPages: number
-  hasMore: boolean
-}
+import type { PaginationMetadata } from '../../../../shared/types/clients'
 
 /**
  * Props for ClientsPagination component

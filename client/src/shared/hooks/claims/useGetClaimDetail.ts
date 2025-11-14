@@ -102,17 +102,28 @@ export function useGetClaimDetail(claimId: string): UseGetClaimDetailReturn {
   }, [claimId]) // Refetch when claimId changes
 
   /**
-   * Manual refetch function
+   * Manual refetch function (with AbortController to cancel in-flight requests)
    * Useful after claim updates to get fresh data
    */
   const refetch = useCallback(async () => {
+    // Abort any in-flight request before refetching
+    abortControllerRef.current?.abort()
+
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+
     setLoading(true)
     setError(null)
 
     try {
-      const data = await getClaimById(claimId)
+      const data = await getClaimById(claimId, { signal: controller.signal })
       setClaim(data)
     } catch (err) {
+      // Ignore aborted requests
+      if ((err as Error).name === 'AbortError') {
+        return
+      }
+
       // Handle API errors with Spanish messages
       if (err instanceof ApiRequestError) {
         if (err.statusCode === 404) {

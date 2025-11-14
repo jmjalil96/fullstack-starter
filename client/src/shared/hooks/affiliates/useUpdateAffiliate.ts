@@ -15,6 +15,8 @@ import { useToast } from '../useToast'
 interface UseUpdateAffiliateOptions {
   /** Callback fired after successful update */
   onSuccess?: (affiliate: AffiliateDetailResponse) => void
+  /** Callback fired after failed update */
+  onError?: (error: Error) => void
 }
 
 /**
@@ -44,7 +46,7 @@ interface UseUpdateAffiliateReturn {
  * Shows success/error toasts automatically.
  * Re-throws errors for component-level handling.
  *
- * @param options - Optional configuration (onSuccess callback)
+ * @param options - Optional configuration (onSuccess, onError callbacks)
  * @returns {UseUpdateAffiliateReturn} Mutation function, loading state, error, data, and reset
  *
  * @example
@@ -158,6 +160,9 @@ export function useUpdateAffiliate(options?: UseUpdateAffiliateOptions): UseUpda
 
         // Show error toast
         toast.error(errorMessage)
+
+        // Call onError callback if provided
+        options?.onError?.(err as Error)
 
         // Re-throw original error to preserve metadata
         throw err

@@ -8,13 +8,13 @@ import { ApiRequestError } from '../../../config/api'
 import { getPolicyAffiliates } from '../../services/policiesApi'
 import type { AffiliateType } from '../../types/affiliates'
 import type {
+  PaginationMetadata,
   PolicyAffiliateResponse,
-  PolicyAffiliatesPagination,
 } from '../../types/policies'
 
 interface UseGetPolicyAffiliatesReturn {
   affiliates: PolicyAffiliateResponse[]
-  pagination: PolicyAffiliatesPagination | null
+  pagination: PaginationMetadata | null
   loading: boolean
   error: string | null
   refetch: () => Promise<void>
@@ -38,7 +38,7 @@ export function useGetPolicyAffiliates(
   }
 ): UseGetPolicyAffiliatesReturn {
   const [affiliates, setAffiliates] = useState<PolicyAffiliateResponse[]>([])
-  const [pagination, setPagination] = useState<PolicyAffiliatesPagination | null>(null)
+  const [pagination, setPagination] = useState<PaginationMetadata | null>(null)
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)

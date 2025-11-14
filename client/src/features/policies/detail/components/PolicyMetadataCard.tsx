@@ -1,14 +1,14 @@
 /**
- * MetadataCard - Sidebar card showing policy metadata
+ * PolicyMetadataCard - Sidebar card showing policy metadata
  * Displays creation and update timestamps
  */
 
 import type { PolicyDetailResponse } from '../../../../shared/types/policies'
 
 /**
- * Props for MetadataCard component
+ * Props for PolicyMetadataCard component
  */
-interface MetadataCardProps {
+interface PolicyMetadataCardProps {
   /** Policy detail data */
   policy: PolicyDetailResponse
 }
@@ -31,7 +31,7 @@ const formatDateTime = (isoString: string): string => {
 }
 
 /**
- * MetadataCard - Compact metadata display for sidebar
+ * PolicyMetadataCard - Compact metadata display for sidebar
  *
  * Features:
  * - Created at (with time)
@@ -41,9 +41,9 @@ const formatDateTime = (isoString: string): string => {
  * - Compact sidebar-friendly sizing
  *
  * @example
- * <MetadataCard policy={policy} />
+ * <PolicyMetadataCard policy={policy} />
  */
-export function MetadataCard({ policy }: MetadataCardProps) {
+export function PolicyMetadataCard({ policy }: PolicyMetadataCardProps) {
   return (
     <div className="bg-white border border-[var(--color-border)] rounded-lg shadow-sm p-4">
       <h3 className="text-sm font-semibold text-[var(--color-navy)] mb-3">

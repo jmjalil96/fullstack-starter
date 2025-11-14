@@ -1,14 +1,14 @@
 /**
- * MetadataCard - Sidebar card showing claim metadata
+ * ClaimMetadataCard - Sidebar card showing claim metadata
  * Displays creation info, audit dates, and technical details
  */
 
 import type { ClaimDetailResponse } from '../../../../shared/types/claims'
 
 /**
- * Props for MetadataCard component
+ * Props for ClaimMetadataCard component
  */
-interface MetadataCardProps {
+interface ClaimMetadataCardProps {
   /** Claim detail data */
   claim: ClaimDetailResponse
 }
@@ -31,7 +31,7 @@ const formatDateTime = (isoString: string): string => {
 }
 
 /**
- * MetadataCard - Compact metadata display for sidebar
+ * ClaimMetadataCard - Compact metadata display for sidebar
  *
  * Features:
  * - Created by (user name or "Sistema")
@@ -42,9 +42,9 @@ const formatDateTime = (isoString: string): string => {
  * - Compact sidebar-friendly sizing
  *
  * @example
- * <MetadataCard claim={claim} />
+ * <ClaimMetadataCard claim={claim} />
  */
-export function MetadataCard({ claim }: MetadataCardProps) {
+export function ClaimMetadataCard({ claim }: ClaimMetadataCardProps) {
   return (
     <div className="bg-white border border-[var(--color-border)] rounded-lg shadow-sm p-4">
       <h3 className="text-sm font-semibold text-[var(--color-navy)] mb-3">

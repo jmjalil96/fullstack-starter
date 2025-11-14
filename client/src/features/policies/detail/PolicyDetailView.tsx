@@ -8,11 +8,11 @@ import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 
 import { DetailPageLayout } from '../../../shared/components/DetailPageLayout'
 import { Button } from '../../../shared/components/ui/Button'
-import { Spinner } from '../../../shared/components/ui/Spinner'
 import { useGetPolicyDetail } from '../../../shared/hooks/policies/useGetPolicyDetail'
 import { getPolicyTabs } from '../../../shared/utils/detailTabs'
 import { StatusBadge } from '../views/components/StatusBadge'
 
+import { PolicyDetailSkeleton } from './components'
 import { PolicyOverviewTab, PolicyAffiliatesTab } from './tabs'
 
 /**
@@ -51,13 +51,9 @@ export function PolicyDetailView({ policyId }: PolicyDetailViewProps) {
     return getPolicyTabs(policy, { affiliates: undefined, claims: undefined, invoices: undefined })
   }, [policy])
 
-  // Loading state - show spinner if no data and no error
+  // Loading state - show skeleton if no data and no error
   if (!policy && !error) {
-    return (
-      <div className="flex justify-center items-center min-h-[400px]">
-        <Spinner size="lg" />
-      </div>
-    )
+    return <PolicyDetailSkeleton />
   }
 
   // Error state (includes 404 not found)

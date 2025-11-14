@@ -3,6 +3,11 @@
  * Mirrors backend DTOs from api/src/features/clients/
  */
 
+import type { PaginationMetadata } from './common'
+
+// Re-export for convenience
+export type { PaginationMetadata }
+
 /**
  * Single client item in list view
  * Mirrors: api/src/features/clients/views/viewClients.dto.ts
@@ -16,18 +21,6 @@ export interface ClientListItemResponse {
   address: string | null
   isActive: boolean
   createdAt: string
-}
-
-/**
- * Pagination metadata
- * Mirrors: api/src/features/clients/views/viewClients.dto.ts
- */
-export interface PaginationMetadata {
-  total: number
-  page: number
-  limit: number
-  totalPages: number
-  hasMore: boolean
 }
 
 /**

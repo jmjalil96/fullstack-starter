@@ -8,11 +8,11 @@ import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 
 import { DetailPageLayout } from '../../../shared/components/DetailPageLayout'
 import { Button } from '../../../shared/components/ui/Button'
-import { Spinner } from '../../../shared/components/ui/Spinner'
 import { useGetClaimDetail } from '../../../shared/hooks/claims/useGetClaimDetail'
 import { getClaimTabs } from '../../../shared/utils/detailTabs'
 import { StatusBadge } from '../views/components/StatusBadge'
 
+import { ClaimDetailSkeleton } from './components'
 import { ClaimOverviewTab } from './tabs'
 
 /**
@@ -80,13 +80,9 @@ export function ClaimDetailView({ claimId }: ClaimDetailViewProps) {
     })
   }, [claim, counts])
 
-  // Loading state - show spinner if no data and no error
+  // Loading state - show skeleton if no data and no error
   if (!claim && !error) {
-    return (
-      <div className="flex justify-center items-center min-h-[400px]">
-        <Spinner size="lg" />
-      </div>
-    )
+    return <ClaimDetailSkeleton />
   }
 
   // Error state (includes 404 not found)

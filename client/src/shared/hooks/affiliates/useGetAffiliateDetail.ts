@@ -102,17 +102,28 @@ export function useGetAffiliateDetail(affiliateId: string): UseGetAffiliateDetai
   }, [affiliateId]) // Refetch when affiliateId changes
 
   /**
-   * Manual refetch function
+   * Manual refetch function (with AbortController to cancel in-flight requests)
    * Useful after affiliate updates to get fresh data
    */
   const refetch = useCallback(async () => {
+    // Abort any in-flight request before refetching
+    abortControllerRef.current?.abort()
+
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+
     setLoading(true)
     setError(null)
 
     try {
-      const data = await getAffiliateById(affiliateId)
+      const data = await getAffiliateById(affiliateId, { signal: controller.signal })
       setAffiliate(data)
     } catch (err) {
+      // Ignore aborted requests
+      if ((err as Error).name === 'AbortError') {
+        return
+      }
+
       // Handle API errors with Spanish messages
       if (err instanceof ApiRequestError) {
         if (err.statusCode === 404) {

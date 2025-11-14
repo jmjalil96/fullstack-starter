@@ -11,7 +11,7 @@ import {
   WorkflowStepper,
   PolicyDetailsCard,
   PolicyActionsCard,
-  MetadataCard,
+  PolicyMetadataCard,
   EditPolicyModal,
   StatusTransitionModal,
 } from '../components'
@@ -99,7 +99,7 @@ export function PolicyOverviewTab({ policy, onRefetch }: PolicyOverviewTabProps)
           />
 
           {/* Metadata Card (created by, dates) */}
-          <MetadataCard policy={policy} />
+          <PolicyMetadataCard policy={policy} />
         </div>
       </div>
 

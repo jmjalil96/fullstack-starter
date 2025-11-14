@@ -7,11 +7,11 @@ import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 
 import { DetailPageLayout } from '../../../shared/components/DetailPageLayout'
 import { Button } from '../../../shared/components/ui/Button'
-import { Spinner } from '../../../shared/components/ui/Spinner'
 import { useGetAffiliateDetail } from '../../../shared/hooks/affiliates'
 import { getAffiliateTabs } from '../../../shared/utils/detailTabs'
 import { TypeBadge } from '../views/components/TypeBadge'
 
+import { AffiliateDetailSkeleton } from './components'
 import { AffiliateOverviewTab, AffiliatePoliciesTab } from './tabs'
 
 /**
@@ -91,13 +91,9 @@ export function AffiliateDetailView({ affiliateId }: AffiliateDetailViewProps) {
 
   const basePath = `/clientes/afiliados/${affiliateId}`
 
-  // Loading state - show simple spinner
+  // Loading state - show skeleton
   if (loading && !affiliate && !error) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Spinner size="lg" />
-      </div>
-    )
+    return <AffiliateDetailSkeleton />
   }
 
   // Error state

@@ -1,0 +1,187 @@
+# DigitalOcean App Platform Specification
+# Defines infrastructure for Capstone 360 insurance platform
+# Deploy: Push to GitHub and connect in App Platform UI, or use `doctl apps create --spec app.yaml`
+
+name: capstone-360
+region: nyc  # New York datacenter (change to sfo, ams, sgp, etc. as needed)
+
+# ============================================================================
+# SERVICES
+# ============================================================================
+
+services:
+  # --------------------------------------------------------------------------
+  # API Service (Backend)
+  # --------------------------------------------------------------------------
+  - name: api
+    # Source configuration
+    github:
+      repo: jmjalil96/fullstack-starter  # Replace with your repo
+      branch: main
+      deploy_on_push: true  # Auto-deploy on git push
+
+    source_dir: /api
+
+    # Build configuration
+    build_command: |
+      npm ci
+      npx prisma generate
+      npm run build
+
+    # Runtime configuration
+    run_command: |
+      npx prisma migrate deploy
+      npm start
+
+    # Node.js environment
+    environment_slug: node-js
+
+    # Server configuration
+    http_port: 3000
+    instance_count: 1
+    instance_size_slug: basic-xxs  # $5/month (512MB RAM, 1 vCPU)
+
+    # Health check
+    health_check:
+      http_path: /api/health
+      initial_delay_seconds: 30
+      period_seconds: 10
+      timeout_seconds: 5
+      success_threshold: 1
+      failure_threshold: 3
+
+    # Environment variables
+    envs:
+      # Node environment
+      - key: NODE_ENV
+        value: "production"
+        scope: RUN_TIME
+
+      # Database connection (auto-generated from DB component)
+      - key: DATABASE_URL
+        value: ${db.DATABASE_URL}
+        scope: RUN_AND_BUILD_TIME
+
+      # BetterAuth configuration (CHANGE THESE!)
+      - key: BETTER_AUTH_SECRET
+        value: "CHANGE_ME_RUN_openssl_rand_base64_32"
+        type: SECRET
+        scope: RUN_TIME
+
+      - key: BETTER_AUTH_URL
+        value: ${APP_URL}  # Auto-generated app URL
+        scope: RUN_TIME
+
+      # Test user (CHANGE THIS!)
+      - key: TEST_USER_ID
+        value: "CHANGE_ME_TO_REAL_USER_ID"
+        scope: RUN_TIME
+
+    # Routes handled by this service
+    routes:
+      - path: /api
+
+  # --------------------------------------------------------------------------
+  # Frontend Service (Static Site)
+  # --------------------------------------------------------------------------
+  - name: web
+    # Source configuration
+    github:
+      repo: jmjalil96/fullstack-starter  # Replace with your repo
+      branch: main
+      deploy_on_push: true
+
+    source_dir: /client
+
+    # Build configuration
+    build_command: npm ci && npm run build
+
+    # Static site configuration
+    environment_slug: node-js  # Node needed for build only
+
+    # Output directory (Vite default)
+    static_sites:
+      - name: frontend
+        build_command: npm run build
+        output_dir: dist
+        catchall_document: index.html  # SPA routing support
+
+    # Routes handled by this service
+    routes:
+      - path: /
+
+# ============================================================================
+# DATABASES
+# ============================================================================
+
+databases:
+  - name: db
+    engine: PG  # PostgreSQL
+    version: "16"
+    production: false  # Set to true for backups and high availability
+    cluster_name: capstone-db
+    db_name: capstone
+    db_user: capstone_user
+
+# ============================================================================
+# CONFIGURATION NOTES
+# ============================================================================
+#
+# BEFORE DEPLOYING:
+# 1. Update 'github.repo' to match your repository (currently: jmjalil96/fullstack-starter)
+# 2. Generate BETTER_AUTH_SECRET: openssl rand -base64 32
+# 3. Update TEST_USER_ID with a real user ID from your database
+# 4. Set production: true for database if deploying to production
+#
+# DEPLOYMENT METHODS:
+# Method 1 (UI - Easiest):
+#   1. Go to https://cloud.digitalocean.com/apps
+#   2. Click "Create App"
+#   3. Connect GitHub repository
+#   4. App Platform will auto-detect this app.yaml
+#   5. Review configuration and click "Create Resources"
+#
+# Method 2 (CLI - Advanced):
+#   1. Install doctl: https://docs.digitalocean.com/reference/doctl/how-to/install/
+#   2. Authenticate: doctl auth init
+#   3. Create app: doctl apps create --spec app.yaml
+#   4. Update app: doctl apps update <app-id> --spec app.yaml
+#
+# COST ESTIMATE:
+# - API (basic-xxs): $5/month
+# - Frontend (static): $3/month
+# - Database (dev): $7/month
+# - TOTAL: ~$15/month
+#
+# For production, upgrade to:
+# - API: basic-xs ($12/month) - 1GB RAM
+# - Database: production mode ($15/month) - backups + HA
+# - TOTAL: ~$30/month
+#
+# ENVIRONMENT VARIABLES:
+# Required variables marked with CHANGE_ME must be updated before deployment.
+# Use the App Platform UI or doctl to set secret values securely.
+#
+# SCALING:
+# Increase instance_count for horizontal scaling
+# Increase instance_size_slug for vertical scaling (basic-xs, basic-s, basic-m, etc.)
+#
+# CUSTOM DOMAIN:
+# After deployment, add your custom domain in the App Platform UI:
+# Settings → Domains → Add Domain → Follow DNS instructions
+#
+# MONITORING:
+# - Logs: Runtime Logs tab in App Platform UI
+# - Metrics: Insights tab shows CPU, memory, requests
+# - Alerts: Settings → Alerts to configure notifications
+#
+# DATABASE ACCESS:
+# - Connection string: Available in Components → db → Connection Details
+# - Prisma Studio: Not available in production (use local tunnel if needed)
+# - Direct connection: Use connection pooler for external tools
+#
+# MIGRATIONS:
+# Migrations run automatically on deploy via `npx prisma migrate deploy`
+# in the run_command. Make sure migrations are committed to git.
+#
+# ============================================================================

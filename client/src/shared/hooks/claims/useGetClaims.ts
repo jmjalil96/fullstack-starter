@@ -120,17 +120,28 @@ export function useGetClaims(params?: {
   }, [paramsKey]) // Use stringified params for stable dependency
 
   /**
-   * Manual refetch function (without AbortController)
+   * Manual refetch function (with AbortController to cancel in-flight requests)
    */
   const refetch = useCallback(async () => {
+    // Abort any in-flight request before refetching
+    abortControllerRef.current?.abort()
+
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+
     setLoading(true)
     setError(null)
 
     try {
-      const response = await getClaims(params)
+      const response = await getClaims(params, { signal: controller.signal })
       setClaims(response.claims)
       setPagination(response.pagination)
     } catch (err) {
+      // Ignore aborted requests
+      if ((err as Error).name === 'AbortError') {
+        return
+      }
+
       // Handle API errors with Spanish messages
       if (err instanceof ApiRequestError) {
         if (err.statusCode === 403) {

@@ -3,6 +3,11 @@
  * Mirrors backend DTOs from api/src/features/affiliates/
  */
 
+import type { PaginationMetadata } from './common'
+
+// Re-export for convenience
+export type { PaginationMetadata }
+
 /**
  * Affiliate type enum values
  * Mirrors: api/src/features/affiliates/views/viewAffiliates.dto.ts
@@ -78,18 +83,6 @@ export interface AffiliateListItemResponse {
 
   // Dates (ISO strings)
   createdAt: string
-}
-
-/**
- * Pagination metadata
- * Mirrors: api/src/features/affiliates/views/viewAffiliates.dto.ts
- */
-export interface PaginationMetadata {
-  total: number
-  page: number
-  limit: number
-  totalPages: number
-  hasMore: boolean
 }
 
 /**

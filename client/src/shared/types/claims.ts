@@ -3,6 +3,11 @@
  * Mirrors backend DTOs from api/src/features/claims/new/newClaim.dto.ts
  */
 
+import type { PaginationMetadata } from './common'
+
+// Re-export for convenience
+export type { PaginationMetadata }
+
 /**
  * Available client response (for picklist)
  * Returned from GET /api/claims/available-clients
@@ -142,24 +147,6 @@ export interface ClaimListItemResponse {
   // Dates (ISO strings)
   submittedDate: string | null
   createdAt: string
-}
-
-/**
- * Pagination metadata
- * Returned from GET /api/claims
- * Mirrors backend: api/src/features/claims/views/viewClaims.dto.ts
- */
-export interface PaginationMetadata {
-  /** Total number of claims matching filters */
-  total: number
-  /** Current page number */
-  page: number
-  /** Items per page */
-  limit: number
-  /** Total number of pages */
-  totalPages: number
-  /** Whether there are more pages */
-  hasMore: boolean
 }
 
 /**

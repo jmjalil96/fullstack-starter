@@ -8,7 +8,7 @@ export { WorkflowStepper } from './WorkflowStepper'
 export { PolicyHeader } from './PolicyHeader'
 export { PolicyDetailsCard } from './PolicyDetailsCard'
 export { PolicyActionsCard } from './PolicyActionsCard'
-export { MetadataCard } from './MetadataCard'
+export { PolicyMetadataCard } from './PolicyMetadataCard'
 export { PolicyDetailSkeleton } from './PolicyDetailSkeleton'
 
 // Modal components

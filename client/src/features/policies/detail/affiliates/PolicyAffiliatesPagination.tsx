@@ -2,10 +2,10 @@
  * PolicyAffiliatesPagination - Pagination controls for policy affiliates list
  */
 
-import type { PolicyAffiliatesPagination } from '../../../../shared/types/policies'
+import type { PaginationMetadata } from '../../../../shared/types/policies'
 
 interface PolicyAffiliatesPaginationProps {
-  pagination: PolicyAffiliatesPagination
+  pagination: PaginationMetadata
   onPageChange: (page: number) => void
   loading?: boolean
 }

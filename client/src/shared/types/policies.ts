@@ -3,6 +3,12 @@
  * Mirrors backend DTOs from api/src/features/policies/
  */
 
+import type { AffiliateType, CoverageType } from './affiliates'
+import type { PaginationMetadata } from './common'
+
+// Re-export for convenience
+export type { PaginationMetadata }
+
 /**
  * Policy status enum values
  * Mirrors: api/src/features/policies/views/viewPolicies.dto.ts
@@ -58,18 +64,6 @@ export interface PolicyListItemResponse {
 
   // Dates (ISO strings)
   createdAt: string
-}
-
-/**
- * Pagination metadata
- * Mirrors: api/src/features/policies/views/viewPolicies.dto.ts
- */
-export interface PaginationMetadata {
-  total: number
-  page: number
-  limit: number
-  totalPages: number
-  hasMore: boolean
 }
 
 /**
@@ -205,8 +199,6 @@ export type UpdatePolicyResponse = PolicyDetailResponse
  * Mirrors: api/src/features/policies/affiliates/policyAffiliates.dto.ts
  * Similar to AffiliateListItemResponse plus addedAt
  */
-import type { AffiliateType, CoverageType } from './affiliates'
-
 export interface PolicyAffiliateResponse {
   // Affiliate identification
   id: string
@@ -227,20 +219,9 @@ export interface PolicyAffiliateResponse {
 }
 
 /**
- * Pagination metadata for policy affiliates
- */
-export interface PolicyAffiliatesPagination {
-  total: number
-  page: number
-  limit: number
-  totalPages: number
-  hasMore: boolean
-}
-
-/**
  * Response from GET /api/policies/:policyId/affiliates
  */
 export interface GetPolicyAffiliatesResponse {
   affiliates: PolicyAffiliateResponse[]
-  pagination: PolicyAffiliatesPagination
+  pagination: PaginationMetadata
 }

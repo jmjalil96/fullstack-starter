@@ -8,7 +8,7 @@ import { useSearchParams } from 'react-router-dom'
 import { Spinner } from '../../../shared/components/ui/Spinner'
 import { useGetClaims, type ClaimStatus } from '../../../shared/hooks/claims'
 
-import { ClaimsFilterBar, ClaimsPagination, ClaimsTable } from './components'
+import { ClaimsFilterBar, ClaimsPagination, ClaimsTable, ClaimsTableSkeleton } from './components'
 
 /**
  * MisReclamosView - Orchestrates claims list display
@@ -99,6 +99,16 @@ export function MisReclamosView() {
   const handlePageChange = (newPage: number) => {
     setPage(newPage)
     window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  // Show skeleton on initial load
+  if (loading && claims.length === 0 && !error) {
+    return (
+      <div className="space-y-6">
+        <ClaimsFilterBar filters={filters} onFiltersChange={handleFiltersChange} loading={loading} />
+        <ClaimsTableSkeleton />
+      </div>
+    )
   }
 
   return (
