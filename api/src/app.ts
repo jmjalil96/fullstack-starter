@@ -35,6 +35,9 @@ import { validateRequest } from './shared/middleware/validation.js'
 
 const app = express()
 
+// Trust proxy - required for Railway/cloud platforms to get real client IP
+app.set('trust proxy', true)
+
 // 1. Request logging - first to log everything
 app.use(requestLogger)
 
