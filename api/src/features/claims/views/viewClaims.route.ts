@@ -5,9 +5,8 @@
 
 import { Router } from 'express'
 
-import { env } from '../../../config/env.js'
 import { asyncHandler } from '../../../shared/middleware/asyncHandler.js'
-// import { requireAuth } from '../../../shared/middleware/requireAuth.js'
+import { requireAuth } from '../../../shared/middleware/requireAuth.js'
 import { validateRequest } from '../../../shared/middleware/validation.js'
 
 import { claimIdParamSchema, type ClaimIdParam } from './claimDetail.schema.js'
@@ -35,12 +34,10 @@ const router = Router()
  */
 router.get(
   '/claims',
-  // TODO: UNCOMMENT BEFORE PRODUCTION!
-  // requireAuth,
+  requireAuth,
   validateRequest({ query: getClaimsQuerySchema }),
   asyncHandler(async (req, res) => {
-    // TODO: REMOVE MOCK - Use req.user.id when requireAuth is enabled
-    const userId = env.TEST_USER_ID // Mock user for testing (remove in production)
+    const userId = req.user!!.id
 
     // Zod validation ensures query params are validated and have defaults
     // Type assertion safe because validateRequest middleware has validated
@@ -65,12 +62,10 @@ router.get(
  */
 router.get(
   '/claims/:id',
-  // TODO: UNCOMMENT BEFORE PRODUCTION!
-  // requireAuth,
+  requireAuth,
   validateRequest({ params: claimIdParamSchema }),
   asyncHandler(async (req, res) => {
-    // TODO: REMOVE MOCK - Use req.user.id when requireAuth is enabled
-    const userId = env.TEST_USER_ID // Mock user for testing (remove in production)
+    const userId = req.user!!.id
 
     const { id } = req.params as ClaimIdParam
 

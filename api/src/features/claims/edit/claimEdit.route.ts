@@ -5,9 +5,8 @@
 
 import { Router } from 'express'
 
-import { env } from '../../../config/env.js'
 import { asyncHandler } from '../../../shared/middleware/asyncHandler.js'
-// import { requireAuth } from '../../../shared/middleware/requireAuth.js'
+import { requireAuth } from '../../../shared/middleware/requireAuth.js'
 import { validateRequest } from '../../../shared/middleware/validation.js'
 import { claimIdParamSchema } from '../views/claimDetail.schema.js'
 
@@ -46,12 +45,10 @@ const router = Router()
  */
 router.put(
   '/claims/:id',
-  // TODO: UNCOMMENT BEFORE PRODUCTION!
-  // requireAuth,
+  requireAuth,
   validateRequest({ params: claimIdParamSchema, body: claimUpdateSchema }),
   asyncHandler(async (req, res) => {
-    // TODO: REMOVE MOCK - Use req.user.id when requireAuth is enabled
-    const userId = env.TEST_USER_ID // Mock user for testing (remove in production)
+    const userId = req.user!!.id
 
     const { id } = req.params
     const updates = req.body // Already validated and parsed by Zod (dates are Date objects)

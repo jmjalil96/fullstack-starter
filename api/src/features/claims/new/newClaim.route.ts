@@ -5,9 +5,8 @@
 
 import { Router } from 'express'
 
-import { env } from '../../../config/env.js'
 import { asyncHandler } from '../../../shared/middleware/asyncHandler.js'
-// import { requireAuth } from '../../../shared/middleware/requireAuth.js'
+import { requireAuth } from '../../../shared/middleware/requireAuth.js'
 import { validateRequest } from '../../../shared/middleware/validation.js'
 
 import {
@@ -30,11 +29,9 @@ const router = Router()
  */
 router.get(
   '/claims/available-clients',
-  // TODO: UNCOMMENT BEFORE PRODUCTION!
-  // requireAuth,
+  requireAuth,
   asyncHandler(async (_req, res) => {
-    // TODO: REMOVE MOCK - Use req.user.id when requireAuth is enabled
-    const userId = env.TEST_USER_ID // Mock user for testing (remove in production)
+    const userId = _req.user!.id
 
     const clients = await getAvailableClients(userId)
 
@@ -48,12 +45,10 @@ router.get(
  */
 router.get(
   '/claims/available-affiliates',
-  // TODO: UNCOMMENT BEFORE PRODUCTION!
-  // requireAuth,
+  requireAuth,
   validateRequest({ query: availableAffiliatesQuerySchema }),
   asyncHandler(async (req, res) => {
-    // TODO: REMOVE MOCK - Use req.user.id when requireAuth is enabled
-    const userId = env.TEST_USER_ID // Mock user for testing (remove in production)
+    const userId = req.user!.id
 
     // Zod validation ensures clientId is a string
     const { clientId } = req.query as { clientId: string }
@@ -70,12 +65,10 @@ router.get(
  */
 router.get(
   '/claims/available-patients',
-  // TODO: UNCOMMENT BEFORE PRODUCTION!
-  // requireAuth,
+  requireAuth,
   validateRequest({ query: availablePatientsQuerySchema }),
   asyncHandler(async (req, res) => {
-    // TODO: REMOVE MOCK - Use req.user.id when requireAuth is enabled
-    const userId = env.TEST_USER_ID // Mock user for testing (remove in production)
+    const userId = req.user!.id
 
     // Zod validation ensures affiliateId is a string
     const { affiliateId } = req.query as { affiliateId: string }
@@ -92,12 +85,10 @@ router.get(
  */
 router.post(
   '/claims',
-  // TODO: UNCOMMENT BEFORE PRODUCTION!
-  // requireAuth,
+  requireAuth,
   validateRequest({ body: createClaimSchema }),
   asyncHandler(async (req, res) => {
-    // TODO: REMOVE MOCK - Use req.user.id when requireAuth is enabled
-    const userId = env.TEST_USER_ID // Mock user for testing (remove in production)
+    const userId = req.user!.id
 
     const claim = await createClaim(userId, req.body)
 
