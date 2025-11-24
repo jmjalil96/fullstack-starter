@@ -1,32 +1,32 @@
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 
-import { AffiliateDetail } from './features/affiliates/AffiliateDetail'
-import { AffiliatesList } from './features/affiliates/AffiliatesList'
+import { ComponentTest } from './dev/ComponentTest'
+import { AffiliateDetail } from './features/affiliates/components/AffiliateDetail'
+import { AffiliatesList } from './features/affiliates/components/AffiliatesList'
+import { AiAssistant } from './features/ai/AiAssistant'
 import { ForgotPassword } from './features/auth/ForgotPassword'
 import { Login } from './features/auth/Login'
 import { ResetPassword } from './features/auth/ResetPassword'
 import { Signup } from './features/auth/Signup'
-import { ClaimDetail } from './features/claims/ClaimDetail'
-import { ClaimsList } from './features/claims/ClaimsList'
-import { NewClaim } from './features/claims/NewClaim'
-import { ClientDetail } from './features/clients/ClientDetail'
-import { ClientsList } from './features/clients/ClientsList'
-import { InvoiceDetail } from './features/invoices/InvoiceDetail'
-import { InvoicesList } from './features/invoices/InvoicesList'
-import { PoliciesList } from './features/policies/PoliciesList'
-import { PolicyDetail } from './features/policies/PolicyDetail'
-import { Biblioteca } from './pages/Biblioteca'
-import { CapstoneAI } from './pages/CapstoneAI'
-import { CasosAbiertos } from './pages/casos/CasosAbiertos'
-import { MisCasos } from './pages/casos/MisCasos'
-import { NuevoCaso } from './pages/casos/NuevoCaso'
-import { ComponentTest } from './pages/ComponentTest'
-import { Dashboard } from './pages/Dashboard'
-import { Home } from './pages/Home'
+import { CreateCase } from './features/cases/CreateCase'
+import { MyCases } from './features/cases/MyCases'
+import { OpenCases } from './features/cases/OpenCases'
+import { ClaimDetail } from './features/claims/components/ClaimDetail'
+import { ClaimsList } from './features/claims/components/ClaimsList'
+import { NewClaim } from './features/claims/components/NewClaim'
+import { ClientDetail } from './features/clients/components/ClientDetail'
+import { ClientsList } from './features/clients/components/ClientsList'
+import { Dashboard } from './features/home/Dashboard'
+import { Home } from './features/home/Home'
+import { InvoiceDetail } from './features/invoices/components/InvoiceDetail'
+import { InvoicesList } from './features/invoices/components/InvoicesList'
+import { Library } from './features/library/Library'
+import { PoliciesList } from './features/policies/components/PoliciesList'
+import { PolicyDetail } from './features/policies/components/PolicyDetail'
+import { QueryProvider } from './providers/QueryProvider'
 import { ErrorBoundary } from './shared/components/ErrorBoundary'
 import { MainLayout } from './shared/components/layout/templates/MainLayout'
 import { ProtectedRoute } from './shared/components/ProtectedRoute'
-import { QueryProvider } from './shared/providers/QueryProvider'
 
 /**
  * Router content wrapped with ErrorBoundary that resets on navigation
@@ -88,13 +88,13 @@ function AppRoutes() {
             <Route path="clientes/facturas/*" element={<Navigate to="/facturas" replace />} />
 
             {/* Casos (Centro de Resolución) */}
-            <Route path="casos/nuevo" element={<NuevoCaso />} />
-            <Route path="casos/mis-casos" element={<MisCasos />} />
-            <Route path="casos/abiertos" element={<CasosAbiertos />} />
+            <Route path="casos/nuevo" element={<CreateCase />} />
+            <Route path="casos/mis-casos" element={<MyCases />} />
+            <Route path="casos/abiertos" element={<OpenCases />} />
 
             {/* Other Pages */}
-            <Route path="biblioteca" element={<Biblioteca />} />
-            <Route path="capstone-ai" element={<CapstoneAI />} />
+            <Route path="biblioteca" element={<Library />} />
+            <Route path="capstone-ai" element={<AiAssistant />} />
 
             {/* 404 - Redirect to dashboard */}
             <Route path="*" element={<Navigate to="/dashboard" replace />} />

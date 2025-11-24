@@ -1,6 +1,5 @@
-import type { InvoiceDetailResponse, InvoiceUpdateRequest } from '../../shared/types/invoices'
-
-import type { InvoiceEditFormData } from './editInvoiceSchema'
+import type { InvoiceDetailResponse, InvoiceUpdateRequest } from './invoices'
+import type { InvoiceEditFormData } from './schemas/editInvoiceSchema'
 
 /**
  * Convert InvoiceDetailResponse to form default values

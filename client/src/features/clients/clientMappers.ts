@@ -1,6 +1,5 @@
-import type { ClientDetailResponse, UpdateClientRequest } from '../../shared/types/clients'
-
-import type { ClientUpdateFormData } from './clientUpdateSchema'
+import type { ClientDetailResponse, UpdateClientRequest } from './clients'
+import type { ClientUpdateFormData } from './schemas/clientUpdateSchema'
 
 /**
  * Convert ClientDetailResponse to form default values

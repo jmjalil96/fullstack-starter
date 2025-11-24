@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form'
 
 import { Button } from '../../shared/components/ui/forms/Button'
 import { Input } from '../../shared/components/ui/forms/Input'
-import { useAuthStore } from '../../shared/store/authStore'
+import { useAuthStore } from '../../store/authStore'
 
 import { AuthLayout } from './AuthLayout'
 

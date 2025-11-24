@@ -1,11 +1,11 @@
 import { useMemo } from 'react'
 
-import { CLAIM_LIFECYCLE } from '../../../constants/claimLifecycle'
-import { INVOICE_LIFECYCLE } from '../../../constants/invoiceLifecycle'
-import { POLICY_LIFECYCLE } from '../../../constants/policyLifecycle'
-import type { ClaimStatus } from '../../../types/claims'
-import type { InvoiceStatus } from '../../../types/invoices'
-import type { PolicyStatus } from '../../../types/policies'
+import { CLAIM_LIFECYCLE } from '../../../../features/claims/claimLifecycle'
+import type { ClaimStatus } from '../../../../features/claims/claims'
+import { INVOICE_LIFECYCLE } from '../../../../features/invoices/invoiceLifecycle'
+import type { InvoiceStatus } from '../../../../features/invoices/invoices'
+import type { PolicyStatus } from '../../../../features/policies/policies'
+import { POLICY_LIFECYCLE } from '../../../../features/policies/policyLifecycle'
 import { Button } from '../forms/Button'
 
 interface WorkflowStepperProps<TStatus extends string = PolicyStatus> {

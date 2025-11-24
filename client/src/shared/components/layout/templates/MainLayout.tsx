@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 
-import { mainNavItems } from '../../../config/navigation'
-import { getActiveSection } from '../../../config/routeHelpers'
+import { mainNavItems } from '../../../../config/navigation'
+import { getActiveSection } from '../../../../config/routeHelpers'
 import { MobileMenu } from '../navigation/MobileMenu'
 import { SecondaryNav } from '../navigation/SecondaryNav'
 import { TopNav } from '../navigation/TopNav'

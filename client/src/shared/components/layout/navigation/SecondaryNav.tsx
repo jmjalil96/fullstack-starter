@@ -1,7 +1,7 @@
 import { Link, useLocation } from 'react-router-dom'
 
-import type { NavItem, NavSubItem } from '../../../config/navigation'
-import { getActiveSubItem } from '../../../config/routeHelpers'
+import type { NavItem, NavSubItem } from '../../../../config/navigation'
+import { getActiveSubItem } from '../../../../config/routeHelpers'
 
 interface SecondaryNavProps {
   activeSection: NavItem | null

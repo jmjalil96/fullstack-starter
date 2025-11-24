@@ -1,7 +1,7 @@
 import { Link, useLocation } from 'react-router-dom'
 
-import { mainNavItems } from '../../../config/navigation'
-import { isItemActive } from '../../../config/routeHelpers'
+import { mainNavItems } from '../../../../config/navigation'
+import { isItemActive } from '../../../../config/routeHelpers'
 
 import { UserMenu } from './UserMenu'
 

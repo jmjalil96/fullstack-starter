@@ -1,6 +1,6 @@
-import type { AffiliateDetailResponse, UpdateAffiliateRequest } from '../../shared/types/affiliates'
+import type { AffiliateDetailResponse, UpdateAffiliateRequest } from '../../features/affiliates/affiliates'
 
-import type { AffiliateUpdateFormData } from './updateAffiliateSchema'
+import type { AffiliateUpdateFormData } from './schemas/updateAffiliateSchema'
 
 /**
  * Convert AffiliateDetailResponse to form default values

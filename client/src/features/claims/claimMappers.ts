@@ -1,6 +1,5 @@
-import type { ClaimUpdateRequest } from '../../shared/types/claims'
-
-import type { ClaimUpdateFormData } from './editClaimSchema'
+import type { ClaimUpdateRequest } from './claims'
+import type { ClaimUpdateFormData } from './schemas/editClaimSchema'
 
 /**
  * Converts string to number, handling empty strings and invalid inputs

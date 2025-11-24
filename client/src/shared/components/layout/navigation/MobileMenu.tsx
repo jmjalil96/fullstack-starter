@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 
-import { mainNavItems } from '../../../config/navigation'
-import { getActiveSubItem, isItemActive } from '../../../config/routeHelpers'
+import { mainNavItems } from '../../../../config/navigation'
+import { getActiveSubItem, isItemActive } from '../../../../config/routeHelpers'
 
 interface MobileMenuProps {
   isOpen: boolean

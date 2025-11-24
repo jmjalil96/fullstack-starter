@@ -1,6 +1,6 @@
-import type { PolicyDetailResponse, UpdatePolicyRequest } from '../../shared/types/policies'
+import type { PolicyDetailResponse, UpdatePolicyRequest } from '../../features/policies/policies'
 
-import type { PolicyEditFormData } from './editSchema'
+import type { PolicyEditFormData } from './schemas/editSchema'
 
 /**
  * Convert PolicyDetailResponse to form default values

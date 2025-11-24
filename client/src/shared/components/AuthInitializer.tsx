@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect } from 'react'
 
-import { useAuthStore } from '../store/authStore'
+import { useAuthStore } from '../../store/authStore'
 
 import { Spinner } from './ui/feedback/Spinner'
 
