@@ -7,6 +7,8 @@
 // IMPORTS
 // ============================================================================
 
+import { Prisma } from '@prisma/client'
+
 import { db } from '../../../config/database.js'
 import { BROKER_EMPLOYEES } from '../../../shared/constants/roles.js'
 import {
@@ -72,8 +74,7 @@ export async function getPolicies(
   }
 
   // STEP 3: Build Base WHERE Clause with Role-Based Scoping
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let where: any = {}
+  let where: Prisma.PolicyWhereInput = {}
 
   if (isClientAdmin) {
     // CLIENT_ADMIN: Only policies from accessible clients

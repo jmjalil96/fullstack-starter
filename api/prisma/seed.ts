@@ -1,6 +1,7 @@
 /**
  * Comprehensive seed database with realistic test data
- * Creates 20+ clients, 35 policies, 220+ affiliates, 40 claims
+ * Creates 20+ clients, 35 policies, 220+ affiliates, 40 claims, 6 invoices
+ * Includes pro-rata billing scenarios, multi-policy invoices, various statuses
  * Run with: npx prisma db seed or npm run db:seed
  */
 
@@ -9,10 +10,15 @@ import {
   type Affiliate,
   ClaimStatus,
   CoverageType,
+  InvoiceStatus,
+  PaymentStatus,
   type Policy,
   PolicyStatus,
   PrismaClient,
 } from '@prisma/client'
+
+// Import real validation service to calculate realistic invoice data
+import { calculateInvoiceValidation } from '../src/features/invoices/validate/validateInvoice.service.js'
 
 const prisma = new PrismaClient()
 
@@ -464,8 +470,9 @@ async function main() {
   await prisma.claim.deleteMany()
   await prisma.claimAttachment.deleteMany()
   await prisma.affiliate.deleteMany()
-  await prisma.policy.deleteMany()
+  await prisma.invoicePolicy.deleteMany()
   await prisma.invoice.deleteMany()
+  await prisma.policy.deleteMany()
   await prisma.ticket.deleteMany()
   await prisma.ticketMessage.deleteMany()
   await prisma.employee.deleteMany()
@@ -801,6 +808,7 @@ async function main() {
           documentType: 'DNI',
           documentNumber: generateDNI(),
           affiliateType: AffiliateType.DEPENDENT,
+          coverageType: owner.coverageType, // Inherit owner's coverage tier
           primaryAffiliateId: owner.id,
           clientId: owner.clientId,
         },
@@ -949,7 +957,334 @@ async function main() {
   console.log(`✓ Created 40 claims (distributed across statuses)\n`)
 
   // ==========================================================================
-  // 12. CREATE EMPLOYEES
+  // 12. UPDATE SOME AFFILIATES FOR PRO-RATA SCENARIOS
+  // ==========================================================================
+
+  console.log('📅 Setting up pro-rata scenarios (affiliates joining/leaving mid-period)...')
+
+  // Target owners for one specific client (clients[4]) to align with Feb invoices
+  const prorataClient = clients[4]!
+  const prorataOwners = allOwners.filter((o) => o.clientId === prorataClient.id).slice(0, 8)
+
+  // Scenario A: some owners leave mid-February
+  const ownersLeavingMidFeb = prorataOwners.slice(0, 4)
+  for (const owner of ownersLeavingMidFeb) {
+    const removedDate = new Date(2025, 1, randomInt(10, 25)) // Feb 10-25, 2025
+    await prisma.policyAffiliate.updateMany({
+      where: { affiliateId: owner.id },
+      data: {
+        removedAt: removedDate,
+        isActive: false,
+      },
+    })
+  }
+
+  // Scenario B: some owners join mid-February (back-date addedAt into Feb)
+  const ownersJoiningMidFeb = prorataOwners.slice(4, 8)
+  for (const owner of ownersJoiningMidFeb) {
+    const addedDate = new Date(2025, 1, randomInt(5, 15)) // Feb 5-15, 2025
+    await prisma.policyAffiliate.updateMany({
+      where: { affiliateId: owner.id },
+      data: {
+        addedAt: addedDate,
+      },
+    })
+  }
+
+  console.log('✓ Set up pro-rata scenarios for February billing period\n')
+
+  // ==========================================================================
+  // 13. CREATE INVOICES
+  // ==========================================================================
+
+  console.log('🧾 Creating invoices with realistic validation data...')
+
+  type InvoiceScenarioResult = {
+    invoiceId: string
+    expectedAmount: number
+    expectedCount: number
+  }
+
+  /**
+   * Helper: create invoice, link to policies, optionally run real validation
+   */
+  async function createInvoiceWithPoliciesAndValidation(params: {
+    invoiceNumber: string
+    insurerInvoiceNumber: string
+    clientId: string
+    billingPeriod: string
+    uploadedByUserId: string
+    policiesForInvoice: Policy[]
+    initialStatus: InvoiceStatus
+    initialPaymentStatus: PaymentStatus
+    runValidation: boolean
+  }): Promise<InvoiceScenarioResult> {
+    const { invoiceNumber, insurerInvoiceNumber, clientId, billingPeriod, uploadedByUserId, policiesForInvoice } =
+      params
+
+    if (policiesForInvoice.length === 0) {
+      throw new Error(`No policies for invoice ${invoiceNumber}`)
+    }
+
+    const primaryPolicy = policiesForInvoice[0]!
+
+    // Create invoice with placeholders
+    const invoice = await prisma.invoice.create({
+      data: {
+        invoiceNumber,
+        insurerInvoiceNumber,
+        insurerId: primaryPolicy.insurerId,
+        clientId,
+        status: params.initialStatus,
+        paymentStatus: params.initialPaymentStatus,
+        billingPeriod,
+        totalAmount: 0, // Will set after validation
+        taxAmount: 0,
+        expectedAmount: null,
+        expectedAffiliateCount: null,
+        actualAffiliateCount: 0,
+        issueDate: new Date(2025, billingPeriod.endsWith('-01') ? 0 : 1, 5),
+        dueDate: new Date(2025, billingPeriod.endsWith('-01') ? 0 : 1, 20),
+        uploadedById: uploadedByUserId,
+      },
+    })
+
+    // Link to policies
+    for (const policy of policiesForInvoice) {
+      await prisma.invoicePolicy.create({
+        data: {
+          invoiceId: invoice.id,
+          policyId: policy.id,
+          expectedAmount: 0,
+          expectedBreakdown: {},
+          expectedAffiliateCount: 0,
+        },
+      })
+    }
+
+    let expectedAmount = 0
+    let expectedCount = 0
+
+    if (params.runValidation) {
+      // Call real validation service
+      await calculateInvoiceValidation(uploadedByUserId, invoice.id)
+      const refreshed = await prisma.invoice.findUnique({
+        where: { id: invoice.id },
+        select: { expectedAmount: true, expectedAffiliateCount: true },
+      })
+      expectedAmount = refreshed?.expectedAmount ?? 0
+      expectedCount = refreshed?.expectedAffiliateCount ?? 0
+    }
+
+    return { invoiceId: invoice.id, expectedAmount, expectedCount }
+  }
+
+  const invoicesCreated: { id: string; invoiceNumber: string }[] = []
+
+  // Build map: clientId -> ACTIVE policies
+  const activePoliciesByClient = new Map<string, Policy[]>()
+  for (const policy of policies) {
+    if (policy.status !== PolicyStatus.ACTIVE) continue
+    const existing = activePoliciesByClient.get(policy.clientId) ?? []
+    existing.push(policy)
+    activePoliciesByClient.set(policy.clientId, existing)
+  }
+
+  // ========================================================================
+  // SCENARIO 1: Single-policy, perfect match (VALIDATED + PAID)
+  // ========================================================================
+  const client0Policies = (activePoliciesByClient.get(clients[0]!.id) ?? []).filter(p => p.type === 'Salud').slice(0, 1)
+  if (client0Policies.length > 0) {
+    const { invoiceId, expectedAmount, expectedCount } = await createInvoiceWithPoliciesAndValidation({
+      invoiceNumber: 'INV-2025-001',
+      insurerInvoiceNumber: 'CLIENT0-JAN-001',
+      clientId: clients[0]!.id,
+      billingPeriod: '2025-01',
+      uploadedByUserId: brokerUsers[0]!.id,
+      policiesForInvoice: client0Policies,
+      initialStatus: InvoiceStatus.PENDING,
+      initialPaymentStatus: PaymentStatus.PENDING_PAYMENT,
+      runValidation: true,
+    })
+
+    const taxAmount = Math.round(expectedAmount * 0.18 * 100) / 100
+    await prisma.invoice.update({
+      where: { id: invoiceId },
+      data: {
+        status: InvoiceStatus.VALIDATED,
+        paymentStatus: PaymentStatus.PAID,
+        totalAmount: expectedAmount,
+        taxAmount,
+        actualAffiliateCount: expectedCount,
+        countMatches: true,
+        amountMatches: true,
+        paymentDate: new Date(2025, 0, 18),
+      },
+    })
+    invoicesCreated.push({ id: invoiceId, invoiceNumber: 'INV-2025-001' })
+  }
+
+  // ========================================================================
+  // SCENARIO 2: Multi-policy, perfect match (VALIDATED + PENDING)
+  // ========================================================================
+  const client1Policies = (activePoliciesByClient.get(clients[1]!.id) ?? []).slice(0, 2)
+  if (client1Policies.length > 0) {
+    const { invoiceId, expectedAmount, expectedCount } = await createInvoiceWithPoliciesAndValidation({
+      invoiceNumber: 'INV-2025-002',
+      insurerInvoiceNumber: 'CLIENT1-JAN-002',
+      clientId: clients[1]!.id,
+      billingPeriod: '2025-01',
+      uploadedByUserId: brokerUsers[2]!.id,
+      policiesForInvoice: client1Policies,
+      initialStatus: InvoiceStatus.PENDING,
+      initialPaymentStatus: PaymentStatus.PENDING_PAYMENT,
+      runValidation: true,
+    })
+
+    const taxAmount = Math.round(expectedAmount * 0.18 * 100) / 100
+    await prisma.invoice.update({
+      where: { id: invoiceId },
+      data: {
+        status: InvoiceStatus.VALIDATED,
+        paymentStatus: PaymentStatus.PENDING_PAYMENT,
+        totalAmount: expectedAmount,
+        taxAmount,
+        actualAffiliateCount: expectedCount,
+        countMatches: true,
+        amountMatches: true,
+      },
+    })
+    invoicesCreated.push({ id: invoiceId, invoiceNumber: 'INV-2025-002' })
+  }
+
+  // ========================================================================
+  // SCENARIO 3: Amount mismatch (DISCREPANCY)
+  // ========================================================================
+  const client2Policies = (activePoliciesByClient.get(clients[2]!.id) ?? []).slice(0, 1)
+  if (client2Policies.length > 0) {
+    const { invoiceId, expectedAmount, expectedCount } = await createInvoiceWithPoliciesAndValidation({
+      invoiceNumber: 'INV-2025-003',
+      insurerInvoiceNumber: 'CLIENT2-JAN-003',
+      clientId: clients[2]!.id,
+      billingPeriod: '2025-01',
+      uploadedByUserId: brokerUsers[1]!.id,
+      policiesForInvoice: client2Policies,
+      initialStatus: InvoiceStatus.PENDING,
+      initialPaymentStatus: PaymentStatus.PENDING_PAYMENT,
+      runValidation: true,
+    })
+
+    const totalAmount = expectedAmount + 500 // Insurer overbilled $500
+    const taxAmount = Math.round(totalAmount * 0.18 * 100) / 100
+    await prisma.invoice.update({
+      where: { id: invoiceId },
+      data: {
+        status: InvoiceStatus.DISCREPANCY,
+        totalAmount,
+        taxAmount,
+        actualAffiliateCount: expectedCount,
+        countMatches: true,
+        amountMatches: false,
+        discrepancyNotes: 'Insurer billed $500 more than expected. Under review.',
+      },
+    })
+    invoicesCreated.push({ id: invoiceId, invoiceNumber: 'INV-2025-003' })
+  }
+
+  // ========================================================================
+  // SCENARIO 4: Count mismatch (DISCREPANCY)
+  // ========================================================================
+  const client3Policies = (activePoliciesByClient.get(clients[3]!.id) ?? []).slice(0, 2)
+  if (client3Policies.length > 0) {
+    const { invoiceId, expectedAmount, expectedCount } = await createInvoiceWithPoliciesAndValidation({
+      invoiceNumber: 'INV-2025-004',
+      insurerInvoiceNumber: 'CLIENT3-FEB-001',
+      clientId: clients[3]!.id,
+      billingPeriod: '2025-02',
+      uploadedByUserId: brokerUsers[2]!.id,
+      policiesForInvoice: client3Policies,
+      initialStatus: InvoiceStatus.PENDING,
+      initialPaymentStatus: PaymentStatus.PENDING_PAYMENT,
+      runValidation: true,
+    })
+
+    const taxAmount = Math.round(expectedAmount * 0.18 * 100) / 100
+    const actualCount = expectedCount + 3 // Insurer billed for 3 extra owners
+    await prisma.invoice.update({
+      where: { id: invoiceId },
+      data: {
+        status: InvoiceStatus.DISCREPANCY,
+        totalAmount: expectedAmount,
+        taxAmount,
+        actualAffiliateCount: actualCount,
+        countMatches: false,
+        amountMatches: true,
+        discrepancyNotes: 'Insurer billed for 3 extra owners not in our records.',
+      },
+    })
+    invoicesCreated.push({ id: invoiceId, invoiceNumber: 'INV-2025-004' })
+  }
+
+  // ========================================================================
+  // SCENARIO 5: Pro-rata (PENDING, for testing /validate endpoint)
+  // ========================================================================
+  const client4Policies = (activePoliciesByClient.get(clients[4]!.id) ?? []).slice(0, 1)
+  if (client4Policies.length > 0) {
+    const { invoiceId } = await createInvoiceWithPoliciesAndValidation({
+      invoiceNumber: 'INV-2025-005',
+      insurerInvoiceNumber: 'CLIENT4-FEB-002',
+      clientId: clients[4]!.id,
+      billingPeriod: '2025-02',
+      uploadedByUserId: brokerUsers[2]!.id,
+      policiesForInvoice: client4Policies,
+      initialStatus: InvoiceStatus.PENDING,
+      initialPaymentStatus: PaymentStatus.PENDING_PAYMENT,
+      runValidation: false, // Leave for testing /validate endpoint
+    })
+
+    await prisma.invoice.update({
+      where: { id: invoiceId },
+      data: {
+        totalAmount: 7000,
+        taxAmount: Math.round(7000 * 0.18 * 100) / 100,
+        actualAffiliateCount: 15,
+      },
+    })
+    invoicesCreated.push({ id: invoiceId, invoiceNumber: 'INV-2025-005' })
+  }
+
+  // ========================================================================
+  // SCENARIO 6: CANCELLED with policies
+  // ========================================================================
+  const client0PoliciesForCancelled = (activePoliciesByClient.get(clients[0]!.id) ?? []).slice(0, 1)
+  if (client0PoliciesForCancelled.length > 0) {
+    const { invoiceId } = await createInvoiceWithPoliciesAndValidation({
+      invoiceNumber: 'INV-2025-006',
+      insurerInvoiceNumber: 'CLIENT0-JAN-DUP',
+      clientId: clients[0]!.id,
+      billingPeriod: '2025-01',
+      uploadedByUserId: brokerUsers[0]!.id,
+      policiesForInvoice: client0PoliciesForCancelled,
+      initialStatus: InvoiceStatus.CANCELLED,
+      initialPaymentStatus: PaymentStatus.PENDING_PAYMENT,
+      runValidation: false,
+    })
+
+    await prisma.invoice.update({
+      where: { id: invoiceId },
+      data: {
+        totalAmount: 15000,
+        taxAmount: Math.round(15000 * 0.18 * 100) / 100,
+        discrepancyNotes: 'Duplicate invoice. Cancelled.',
+      },
+    })
+    invoicesCreated.push({ id: invoiceId, invoiceNumber: 'INV-2025-006' })
+  }
+
+  console.log(`✓ Created ${invoicesCreated.length} invoices with realistic expectations\n`)
+
+  // ==========================================================================
+  // 14. CREATE EMPLOYEES
   // ==========================================================================
 
   console.log('💼 Creating employees...')
@@ -1033,8 +1368,9 @@ async function main() {
   console.log(`  ├─ ${totalUsers} Users (${brokerUsers.length} brokers + ${clientAdmins.length} client admins)`)
   console.log(`  ├─ ${totalAffiliates} Affiliates (${allOwners.length} owners + ${allDependents.length} dependents)`)
   console.log(`  ├─ ${policies.length} Policies`)
-  console.log(`  ├─ ${linkCount} PolicyAffiliate links`)
+  console.log(`  ├─ ${linkCount} PolicyAffiliate links (with pro-rata scenarios)`)
   console.log(`  ├─ 40 Claims`)
+  console.log(`  ├─ ${invoicesCreated.length} Invoices (various statuses, multi-policy support)`)
   console.log(`  ├─ 2 Employees`)
   console.log(`  └─ 2 Agents`)
   console.log('\n💡 Login credentials:')

@@ -219,9 +219,9 @@ model Policy {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  affiliates PolicyAffiliate[]
-  claims     Claim[]
-  invoices   Invoice[]
+  affiliates      PolicyAffiliate[]
+  claims          Claim[]
+  invoicePolicies InvoicePolicy[]
 
   @@index([policyNumber])
   @@index([clientId])
@@ -280,11 +280,14 @@ model PolicyAffiliate {
   affiliateId String
   affiliate   Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
 
-  addedAt DateTime @default(now())
+  addedAt   DateTime  @default(now())
+  removedAt DateTime?
+  isActive  Boolean   @default(true)
 
   @@id([policyId, affiliateId])
   @@index([policyId])
   @@index([affiliateId])
+  @@index([isActive])
 }
 
 model Employee {
@@ -340,7 +343,7 @@ model Agent {
 
 model Claim {
   id            String @id @default(cuid())
-  claimSequence Int    @default(autoincrement()) @unique
+  claimSequence Int    @unique @default(autoincrement())
   claimNumber   String @unique
 
   policyId String?
@@ -386,8 +389,9 @@ model Claim {
 }
 
 model Invoice {
-  id            String @id @default(cuid())
-  invoiceNumber String @unique
+  id                   String @id @default(cuid())
+  invoiceNumber        String @unique
+  insurerInvoiceNumber String
 
   insurerId String
   insurer   Insurer @relation(fields: [insurerId], references: [id])
@@ -395,10 +399,8 @@ model Invoice {
   clientId String
   client   Client @relation(fields: [clientId], references: [id])
 
-  policyId String?
-  policy   Policy? @relation(fields: [policyId], references: [id])
-
   status        InvoiceStatus @default(PENDING)
+  paymentStatus PaymentStatus @default(PENDING_PAYMENT)
   billingPeriod String?
 
   totalAmount Float
@@ -413,9 +415,16 @@ model Invoice {
 
   discrepancyNotes String?
 
-  issueDate DateTime
-  dueDate   DateTime?
-  paidDate  DateTime?
+  // Invoice file attachments
+  fileUrl    String?
+  fileName   String?
+  fileSize   Int?
+  mimeType   String?
+  uploadedAt DateTime?
+
+  issueDate   DateTime
+  dueDate     DateTime?
+  paymentDate DateTime?
 
   uploadedById String?
   uploadedBy   User?   @relation(fields: [uploadedById], references: [id])
@@ -423,13 +432,33 @@ model Invoice {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  policies InvoicePolicy[]
+
   @@index([invoiceNumber])
   @@index([insurerId])
   @@index([clientId])
-  @@index([policyId])
   @@index([status])
+  @@index([paymentStatus])
   @@index([issueDate])
   @@index([dueDate])
+}
+
+model InvoicePolicy {
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  policyId String
+  policy   Policy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+
+  expectedAmount         Float
+  expectedBreakdown      Json
+  expectedAffiliateCount Int
+
+  addedAt DateTime @default(now())
+
+  @@id([invoiceId, policyId])
+  @@index([invoiceId])
+  @@index([policyId])
 }
 
 model Ticket {
@@ -650,8 +679,12 @@ enum InvoiceStatus {
   PENDING
   VALIDATED
   DISCREPANCY
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING_PAYMENT
   PAID
-  DISPUTED
 }
 
 enum TicketStatus {

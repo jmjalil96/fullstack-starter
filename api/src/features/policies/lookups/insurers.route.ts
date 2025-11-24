@@ -5,6 +5,7 @@
 
 import { Router } from 'express'
 
+import { UnauthorizedError } from '../../../shared/errors/errors.js'
 import { asyncHandler } from '../../../shared/middleware/asyncHandler.js'
 import { requireAuth } from '../../../shared/middleware/requireAuth.js'
 
@@ -23,8 +24,12 @@ const router = Router()
 router.get(
   '/policies/available-insurers',
   requireAuth,
-  asyncHandler(async (_req, res) => {
-    const userId = _req.user!.id
+  asyncHandler(async (req, res) => {
+    const user = req.user
+    if (!user) {
+      throw new UnauthorizedError('User not authenticated')
+    }
+    const userId = user.id
 
     const insurers = await getAvailableInsurers(userId)
 

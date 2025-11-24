@@ -7,6 +7,8 @@
 // IMPORTS
 // ============================================================================
 
+import { Prisma } from '@prisma/client'
+
 import { db } from '../../../config/database.js'
 import { ALL_AUTHORIZED_ROLES } from '../../../shared/constants/roles.js'
 import {
@@ -73,8 +75,7 @@ export async function getClients(
   const isAffiliate = roleName === 'AFFILIATE'
   const isClientAdmin = roleName === 'CLIENT_ADMIN'
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let where: any = {}
+  let where: Prisma.ClientWhereInput = {}
 
   if (isAffiliate) {
     // AFFILIATE: Only their own client

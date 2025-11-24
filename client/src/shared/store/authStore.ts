@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
 
 import { ApiRequestError, fetchAPI, registerUnauthorizedHandler } from '../../config/api'
+import { queryClient } from '../../config/queryClient'
 import type {
   ForgotPasswordRequest,
   ResetPasswordRequest,
@@ -216,6 +217,9 @@ export const useAuthStore = create<AuthStore>()(
             method: 'POST',
           })
 
+          // Clear TanStack Query cache to prevent stale data after logout
+          queryClient.clear()
+
           // Clear local state
           set({
             user: null,
@@ -227,6 +231,9 @@ export const useAuthStore = create<AuthStore>()(
           // Even if API call fails, clear local state
           // User wanted to log out, so honor that
           console.error('Logout error:', error)
+
+          // Clear cache even on error
+          queryClient.clear()
 
           set({
             user: null,

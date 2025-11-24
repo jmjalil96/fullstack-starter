@@ -7,6 +7,8 @@
 // IMPORTS
 // ============================================================================
 
+import { Prisma } from '@prisma/client'
+
 import { db } from '../../../config/database.js'
 import { BROKER_EMPLOYEES } from '../../../shared/constants/roles.js'
 import {
@@ -72,8 +74,7 @@ export async function getAffiliates(
   }
 
   // STEP 3: Build Base WHERE Clause (Role-Based Scoping)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let where: any = {}
+  let where: Prisma.AffiliateWhereInput = {}
 
   if (isClientAdmin) {
     // CLIENT_ADMIN: Only affiliates from accessible clients

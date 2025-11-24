@@ -69,8 +69,8 @@ export interface CreateClaimRequest {
 export interface CreateClaimResponse {
   id: string
   claimNumber: string
-  status: string
-  description: string
+  status: ClaimStatus
+  description: string | null
 
   // Client info
   clientId: string

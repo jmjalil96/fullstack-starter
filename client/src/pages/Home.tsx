@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 
-import { Button } from '../shared/components/ui/Button'
+import { Button } from '../shared/components/ui/forms/Button'
 import { useAuthStore } from '../shared/store/authStore'
 
 export function Home() {
@@ -61,10 +61,10 @@ export function Home() {
                   </Button>
                 </Link>
                 <Button
-                  variant="secondary"
+                  variant="outline"
                   size="lg"
                   onClick={handleSignOut}
-                  loading={isAuthenticating}
+                  isLoading={isAuthenticating}
                 >
                   Sign Out
                 </Button>
@@ -77,7 +77,7 @@ export function Home() {
                   </Button>
                 </Link>
                 <Link to="/dashboard">
-                  <Button variant="secondary" size="lg">
+                  <Button variant="outline" size="lg">
                     Try Dashboard
                   </Button>
                 </Link>

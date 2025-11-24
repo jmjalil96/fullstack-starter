@@ -7,6 +7,8 @@
 // IMPORTS
 // ============================================================================
 
+import { Prisma } from '@prisma/client'
+
 import { db } from '../../../config/database.js'
 import { ALL_AUTHORIZED_ROLES, BROKER_EMPLOYEES } from '../../../shared/constants/roles.js'
 import {
@@ -74,8 +76,7 @@ export async function getClaims(
   const isClientAdmin = roleName === 'CLIENT_ADMIN'
   const isBrokerEmployee = BROKER_EMPLOYEES.includes(roleName as never)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let where: any = {}
+  let where: Prisma.ClaimWhereInput = {}
 
   if (isAffiliate) {
     // AFFILIATE: Only claims where they are the main affiliate

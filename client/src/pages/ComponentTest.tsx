@@ -1,205 +1,331 @@
-/**
- * ComponentTest - Test page for developing and previewing components in isolation
- */
-
 import { useState } from 'react'
 
-import { CreateClientModal } from '../features/clients/new/CreateClientModal'
-import { ClientCard } from '../features/clients/views/components/ClientCard'
-import { ClientsFilterBar } from '../features/clients/views/components/ClientsFilterBar'
-import { ClientsPagination } from '../features/clients/views/components/ClientsPagination'
-import { IsActiveBadge } from '../features/clients/views/components/IsActiveBadge'
-import { Button } from '../shared/components/ui/Button'
+import { DataTable, type Column } from '../shared/components/ui/data-display/DataTable'
+import {
+  DataField,
+  DataGrid,
+  DetailSection,
+} from '../shared/components/ui/data-display/DetailSection'
+import { FilterBar, type FilterConfig } from '../shared/components/ui/data-display/FilterBar'
+import { Button } from '../shared/components/ui/forms/Button'
+import { ButtonDropdown } from '../shared/components/ui/interactive/ButtonDropdown'
+import { DetailSidebar } from '../shared/components/ui/layout/DetailSidebar'
+import { PageHeader } from '../shared/components/ui/layout/PageHeader'
+import { WorkflowStepper } from '../shared/components/ui/layout/WorkflowStepper'
 
-/**
- * ComponentTest - Sandbox page for component development
- *
- * Use this page to develop and test components in isolation before
- * integrating them into actual features.
- */
+// Mock Data Type
+interface Client {
+  id: string
+  name: string
+  email: string
+  status: 'active' | 'inactive'
+  lastLogin: string
+}
+
+// Mock Data
+const MOCK_CLIENTS: Client[] = [
+  { id: '1', name: 'TechCorp S.A.', email: 'admin@techcorp.com', status: 'active', lastLogin: '2h ago' },
+  {
+    id: '2',
+    name: 'Logística Express',
+    email: 'info@logex.com',
+    status: 'active',
+    lastLogin: '1d ago',
+  },
+  {
+    id: '3',
+    name: 'Consultores ABC',
+    email: 'contacto@abc.com',
+    status: 'inactive',
+    lastLogin: '5d ago',
+  },
+  {
+    id: '4',
+    name: 'Innovación Global',
+    email: 'rrhh@innovacion.com',
+    status: 'active',
+    lastLogin: '3h ago',
+  },
+]
+
 export function ComponentTest() {
-  const [filters, setFilters] = useState<{ isActive?: boolean; search?: string }>({})
   const [page, setPage] = useState(1)
-  const [createModalOpen, setCreateModalOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [_createModalOpen, setCreateModalOpen] = useState(false)
+  const [filters, setFilters] = useState<Record<string, string>>({})
+  const [activeTab, setActiveTab] = useState('general')
+  const [workflowStatus, setWorkflowStatus] = useState<'PENDING' | 'ACTIVE' | 'EXPIRED' | 'CANCELLED'>('PENDING')
+
+  // Define Filter Config
+  const filterConfig: FilterConfig[] = [
+    { key: 'search', type: 'text', placeholder: 'Buscar clientes...' },
+    {
+      key: 'status',
+      type: 'select',
+      placeholder: 'Estado',
+      options: [
+        { value: 'active', label: 'Activo' },
+        { value: 'inactive', label: 'Inactivo' },
+      ],
+    },
+    {
+      key: 'client',
+      type: 'searchable-select',
+      placeholder: 'Cliente',
+      options: [
+        { value: '1', label: 'TechCorp S.A.' },
+        { value: '2', label: 'Logística Express' },
+        { value: '3', label: 'Consultores ABC' },
+        { value: '4', label: 'Innovación Global' },
+      ],
+    },
+  ]
+
+  // Define Columns
+  const columns: Column<Client>[] = [
+    { key: 'name', header: 'Cliente' },
+    { key: 'email', header: 'Correo' },
+    {
+      key: 'status',
+      header: 'Estado',
+      align: 'center',
+      render: (item) => (
+        <span
+          className={`px-2 py-1 rounded-full text-xs font-medium ${
+            item.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+          }`}
+        >
+          {item.status === 'active' ? 'Activo' : 'Inactivo'}
+        </span>
+      ),
+    },
+    { key: 'lastLogin', header: 'Último Acceso', align: 'right' },
+  ]
 
   return (
-    <div className="p-8 space-y-12">
+    <div className="min-h-screen bg-gray-50 p-8 space-y-12">
+      {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-[var(--color-navy)] mb-2">
-          Component Test Page
-        </h1>
-        <p className="text-[var(--color-text-secondary)]">
-          Sandbox for developing components in isolation
-        </p>
+        <h1 className="text-3xl font-bold text-[var(--color-navy)] mb-2">Component Test</h1>
+        <p className="text-gray-500">Testing ground for UI components.</p>
       </div>
 
-      {/* IsActiveBadge Tests */}
+      {/* Page Header Showcase */}
       <section className="space-y-4">
-        <h2 className="text-xl font-semibold text-[var(--color-navy)] border-b pb-2">
-          IsActiveBadge
-        </h2>
-
-        <div className="space-y-3">
-          <div className="flex items-center gap-4">
-            <span className="w-32 text-sm text-[var(--color-text-secondary)]">Active:</span>
-            <IsActiveBadge isActive={true} />
-          </div>
-
-          <div className="flex items-center gap-4">
-            <span className="w-32 text-sm text-[var(--color-text-secondary)]">Inactive:</span>
-            <IsActiveBadge isActive={false} />
-          </div>
-
-          <div className="flex items-center gap-4">
-            <span className="w-32 text-sm text-[var(--color-text-secondary)]">In sentence:</span>
-            <p className="text-sm">
-              Estado del cliente: <IsActiveBadge isActive={true} />
-            </p>
-          </div>
+        <div className="bg-white border border-gray-200 rounded-lg p-2 text-xs font-mono text-gray-400 mb-4">
+          PageHeader Component
         </div>
-      </section>
 
-      {/* ClientsFilterBar Tests */}
-      <section className="space-y-4">
-        <h2 className="text-xl font-semibold text-[var(--color-navy)] border-b pb-2">
-          ClientsFilterBar
-        </h2>
-
-        <div className="space-y-4">
-          <ClientsFilterBar
-            filters={filters}
-            onFiltersChange={setFilters}
-            loading={false}
-          />
-
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-            <p className="text-sm font-medium text-gray-700 mb-2">Current Filters:</p>
-            <pre className="text-xs text-gray-600">
-              {JSON.stringify(filters, null, 2)}
-            </pre>
-          </div>
-        </div>
-      </section>
-
-      {/* ClientsPagination Tests */}
-      <section className="space-y-4">
-        <h2 className="text-xl font-semibold text-[var(--color-navy)] border-b pb-2">
-          ClientsPagination
-        </h2>
-
-        <div className="space-y-4">
-          <div className="bg-white border border-[var(--color-border)] rounded-lg overflow-hidden">
-            <ClientsPagination
-              pagination={{
-                total: 47,
-                page: page,
-                limit: 20,
-                totalPages: 3,
-                hasMore: page < 3,
-              }}
-              onPageChange={setPage}
-              loading={false}
+        <PageHeader
+          title="Clientes"
+          breadcrumbs={[
+            { label: 'Inicio', to: '/dashboard' },
+            { label: 'Clientes', to: '/clientes' },
+            { label: 'Lista' },
+          ]}
+          secondaryAction={
+            <Button variant="outline" className="!py-2">
+              Exportar
+            </Button>
+          }
+          action={
+            <ButtonDropdown
+              label="Nuevo Cliente"
+              mainAction={() => setCreateModalOpen(true)}
+              items={[
+                { label: 'Importar CSV', onClick: () => alert('Importing CSV...') },
+                { label: 'Descargar Plantilla', onClick: () => alert('Downloading template...') },
+              ]}
             />
-          </div>
-
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-            <p className="text-sm font-medium text-gray-700 mb-2">Current Page: {page}</p>
-          </div>
-        </div>
+          }
+        />
       </section>
 
-      {/* ClientCard Tests */}
+      {/* FilterBar Showcase */}
       <section className="space-y-4">
-        <h2 className="text-xl font-semibold text-[var(--color-navy)] border-b pb-2">
-          ClientCard
-        </h2>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-6xl">
-          {/* Full data */}
-          <ClientCard
-            client={{
-              id: '1',
-              name: 'TechCorp S.A.',
-              taxId: '20123456789',
-              email: 'rrhh@techcorp.com',
-              phone: '+51-1-5678901',
-              address: 'Av. Javier Prado 123, San Isidro',
-              isActive: true,
-              createdAt: '2025-11-05T16:40:03.695Z',
-            }}
-            onClick={(id) => alert(`Navigate to client: ${id}`)}
-          />
-
-          {/* Minimal data (no contact) */}
-          <ClientCard
-            client={{
-              id: '2',
-              name: 'Comercial XYZ',
-              taxId: '20345678901',
-              email: null,
-              phone: null,
-              address: null,
-              isActive: true,
-              createdAt: '2025-10-15T10:00:00.000Z',
-            }}
-            onClick={(id) => alert(`Navigate to client: ${id}`)}
-          />
-
-          {/* Inactive client */}
-          <ClientCard
-            client={{
-              id: '3',
-              name: 'Industrias ABC (Inactiva)',
-              taxId: '20234567890',
-              email: 'admin@industriasabc.com',
-              phone: '+51-1-6789012',
-              address: null,
-              isActive: false,
-              createdAt: '2025-09-01T08:30:00.000Z',
-            }}
-            onClick={(id) => alert(`Navigate to client: ${id}`)}
-          />
+        <div className="bg-white border border-gray-200 rounded-lg p-2 text-xs font-mono text-gray-400 mb-4">
+          FilterBar Component
         </div>
+
+        <FilterBar
+          config={filterConfig}
+          values={filters}
+          onChange={setFilters}
+          onClear={() => setFilters({})}
+        />
+
+        {/* Show current filter values */}
+        {Object.keys(filters).length > 0 && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <p className="text-xs font-mono text-blue-700">
+              <strong>Current Filters:</strong> {JSON.stringify(filters, null, 2)}
+            </p>
+          </div>
+        )}
       </section>
 
-      {/* CreateClientModal Tests */}
+      {/* DataTable Showcase */}
       <section className="space-y-4">
-        <h2 className="text-xl font-semibold text-[var(--color-navy)] border-b pb-2">
-          CreateClientModal
-        </h2>
-
-        <div className="space-y-4">
-          <Button onClick={() => setCreateModalOpen(true)}>
-            Abrir Modal de Creación
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold text-[var(--color-navy)]">Data Table</h2>
+          <Button onClick={() => setLoading(!loading)} variant="outline" className="text-xs !py-2">
+            Toggle Loading
           </Button>
+        </div>
 
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-            <p className="text-sm text-gray-600">
-              Click el botón para abrir el modal. Prueba la validación y creación de clientes.
+        <DataTable
+          data={MOCK_CLIENTS}
+          columns={columns}
+          isLoading={loading}
+          onRowClick={(item) => alert(`Clicked: ${item.name}`)}
+          pagination={{
+            page: page,
+            totalPages: 5,
+            total: 50,
+            limit: 10,
+            hasMore: page < 5,
+            onPageChange: setPage,
+          }}
+        />
+      </section>
+
+      {/* Detail Sidebar Showcase */}
+      <section className="space-y-4">
+        <div className="bg-white border border-gray-200 rounded-lg p-2 text-xs font-mono text-gray-400 mb-4">
+          DetailSidebar Component
+        </div>
+
+        <div className="flex gap-8 bg-gray-100 p-8 rounded-2xl border border-dashed border-gray-300">
+          {/* Sidebar */}
+          <DetailSidebar
+            activeId={activeTab}
+            onSelect={setActiveTab}
+            items={[
+              {
+                id: 'general',
+                label: 'Información General',
+                icon: (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                    />
+                  </svg>
+                ),
+              },
+              {
+                id: 'policies',
+                label: 'Pólizas',
+                icon: (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                    />
+                  </svg>
+                ),
+                badge: 3,
+              },
+              {
+                id: 'claims',
+                label: 'Reclamos',
+                icon: (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                    />
+                  </svg>
+                ),
+                badge: 'New',
+              },
+              {
+                id: 'history',
+                label: 'Historial',
+                icon: (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                ),
+              },
+            ]}
+          />
+
+          {/* Fake Content Area */}
+          <div className="flex-1 bg-white/60 backdrop-blur-xl rounded-2xl border border-white/40 p-8 shadow-sm min-h-[300px]">
+            <h3 className="text-lg font-bold text-gray-800 capitalize mb-2">{activeTab} Content</h3>
+            <p className="text-gray-500 mt-2">
+              This content changes based on the sidebar selection.
             </p>
           </div>
         </div>
       </section>
 
-      {/* Placeholder for next components */}
-      <section className="space-y-4 opacity-50">
-        <h2 className="text-xl font-semibold text-[var(--color-navy)] border-b pb-2">
-          More Components Coming Soon...
-        </h2>
-        <p className="text-sm text-[var(--color-text-secondary)]">
-          Add new components here as you build them
-        </p>
+      {/* Detail Section Showcase */}
+      <section className="space-y-4">
+        <div className="bg-white border border-gray-200 rounded-lg p-2 text-xs font-mono text-gray-400 mb-4">
+          DetailSection Component
+        </div>
+
+        <DetailSection
+          title="Información General"
+          action={
+            <Button variant="outline" className="!py-1.5 !px-3 text-xs">
+              Editar
+            </Button>
+          }
+        >
+          <DataGrid columns={3}>
+            <DataField label="Razón Social" value="TechCorp S.A." />
+            <DataField label="RUC" value="20123456789" />
+            <DataField label="Industria" value="Tecnología" />
+
+            <DataField label="Email Corporativo" value="contacto@techcorp.com" />
+            <DataField label="Teléfono" value="+51 1 555 0101" />
+            <DataField
+              label="Estado"
+              value={
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                  Activo
+                </span>
+              }
+            />
+
+            <DataField
+              label="Dirección Fiscal"
+              value="Av. Javier Prado Este 456, Oficina 1201, San Isidro, Lima"
+              fullWidth
+            />
+          </DataGrid>
+        </DetailSection>
       </section>
 
-      {/* Modal */}
-      <CreateClientModal
-        isOpen={createModalOpen}
-        onClose={() => setCreateModalOpen(false)}
-        onSuccess={() => {
-          setCreateModalOpen(false)
-          alert('Cliente creado exitosamente!')
-        }}
-      />
+      {/* Workflow Stepper Showcase */}
+      <section className="space-y-4">
+        <div className="bg-white border border-gray-200 rounded-lg p-2 text-xs font-mono text-gray-400 mb-4">
+          WorkflowStepper Component
+        </div>
+
+        <WorkflowStepper currentStatus={workflowStatus} onActionClick={setWorkflowStatus} />
+
+        {/* Control buttons for demo */}
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setWorkflowStatus('PENDING')} className="text-xs">
+            Reset to PENDING
+          </Button>
+        </div>
+      </section>
     </div>
   )
 }

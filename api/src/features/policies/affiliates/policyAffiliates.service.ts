@@ -7,6 +7,8 @@
 // IMPORTS
 // ============================================================================
 
+import { Prisma } from '@prisma/client'
+
 import { db } from '../../../config/database.js'
 import { BROKER_EMPLOYEES } from '../../../shared/constants/roles.js'
 import {
@@ -98,14 +100,12 @@ export async function getPolicyAffiliates(
   // BROKER_EMPLOYEES: No additional access checks needed
 
   // STEP 5: Build WHERE Clause with Filters
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any, prefer-const
-  let where: any = {
+  const where: Prisma.PolicyAffiliateWhereInput = {
     policyId: policyId,
   }
 
   // Apply filters via nested affiliate conditions
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const affiliateWhere: any = {}
+  const affiliateWhere: Prisma.AffiliateWhereInput = {}
 
   if (query.affiliateType) {
     affiliateWhere.affiliateType = query.affiliateType

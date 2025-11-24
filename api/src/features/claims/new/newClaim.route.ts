@@ -5,6 +5,7 @@
 
 import { Router } from 'express'
 
+import { UnauthorizedError } from '../../../shared/errors/errors.js'
 import { asyncHandler } from '../../../shared/middleware/asyncHandler.js'
 import { requireAuth } from '../../../shared/middleware/requireAuth.js'
 import { validateRequest } from '../../../shared/middleware/validation.js'
@@ -30,8 +31,12 @@ const router = Router()
 router.get(
   '/claims/available-clients',
   requireAuth,
-  asyncHandler(async (_req, res) => {
-    const userId = _req.user!.id
+  asyncHandler(async (req, res) => {
+    const user = req.user
+    if (!user) {
+      throw new UnauthorizedError('User not authenticated')
+    }
+    const userId = user.id
 
     const clients = await getAvailableClients(userId)
 
@@ -48,7 +53,11 @@ router.get(
   requireAuth,
   validateRequest({ query: availableAffiliatesQuerySchema }),
   asyncHandler(async (req, res) => {
-    const userId = req.user!.id
+    const user = req.user
+    if (!user) {
+      throw new UnauthorizedError('User not authenticated')
+    }
+    const userId = user.id
 
     // Zod validation ensures clientId is a string
     const { clientId } = req.query as { clientId: string }
@@ -68,7 +77,11 @@ router.get(
   requireAuth,
   validateRequest({ query: availablePatientsQuerySchema }),
   asyncHandler(async (req, res) => {
-    const userId = req.user!.id
+    const user = req.user
+    if (!user) {
+      throw new UnauthorizedError('User not authenticated')
+    }
+    const userId = user.id
 
     // Zod validation ensures affiliateId is a string
     const { affiliateId } = req.query as { affiliateId: string }
@@ -88,7 +101,11 @@ router.post(
   requireAuth,
   validateRequest({ body: createClaimSchema }),
   asyncHandler(async (req, res) => {
-    const userId = req.user!.id
+    const user = req.user
+    if (!user) {
+      throw new UnauthorizedError('User not authenticated')
+    }
+    const userId = user.id
 
     const claim = await createClaim(userId, req.body)
 

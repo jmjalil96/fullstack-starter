@@ -4,7 +4,7 @@ import { Navigate } from 'react-router-dom'
 import { useAuthGuard } from '../hooks/useAuthGuard'
 import { useToast } from '../hooks/useToast'
 
-import { Spinner } from './ui/Spinner'
+import { Spinner } from './ui/feedback/Spinner'
 
 /**
  * Props for ProtectedRoute component
@@ -96,8 +96,8 @@ function LoadingScreen() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <div className="text-center">
-        <Spinner size="xl" className="mb-4 mx-auto" label="Checking authentication" />
-        <p className="text-gray-600">Checking authentication...</p>
+        <Spinner size="xl" className="mb-4 mx-auto" label="Verificando autenticación" />
+        <p className="text-gray-600">Verificando autenticación...</p>
       </div>
     </div>
   )

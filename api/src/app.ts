@@ -17,6 +17,12 @@ import viewClaimsRouter from './features/claims/views/viewClaims.route.js'
 import clientEditRouter from './features/clients/edit/clientEdit.route.js'
 import createClientRouter from './features/clients/new/createClient.route.js'
 import viewClientsRouter from './features/clients/views/viewClients.route.js'
+import invoiceEditRouter from './features/invoices/edit/invoiceEdit.route.js'
+import availableClientsForInvoicesRouter from './features/invoices/lookups/clients.route.js'
+import availablePoliciesForInvoicesRouter from './features/invoices/lookups/policies.route.js'
+import createInvoiceRouter from './features/invoices/new/createInvoice.route.js'
+import validateInvoiceRouter from './features/invoices/validate/validateInvoice.route.js'
+import viewInvoicesRouter from './features/invoices/views/viewInvoices.route.js'
 import policyAffiliatesRouter from './features/policies/affiliates/policyAffiliates.route.js'
 import policyEditRouter from './features/policies/edit/policyEdit.route.js'
 import availableClientsRouter from './features/policies/lookups/clients.route.js'
@@ -70,6 +76,12 @@ app.use('/api', viewAffiliatesRouter)
 app.use('/api', createClientRouter)
 app.use('/api', clientEditRouter)
 app.use('/api', viewClientsRouter)
+app.use('/api', availableClientsForInvoicesRouter)
+app.use('/api', availablePoliciesForInvoicesRouter)
+app.use('/api', createInvoiceRouter)
+app.use('/api', invoiceEditRouter)
+app.use('/api', validateInvoiceRouter)
+app.use('/api', viewInvoicesRouter)
 app.use('/api', availableClientsRouter)
 app.use('/api', availableInsurersRouter)
 app.use('/api', createPolicyRouter)

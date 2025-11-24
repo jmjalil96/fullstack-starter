@@ -5,6 +5,7 @@
 
 import { Router } from 'express'
 
+import { UnauthorizedError } from '../../../shared/errors/errors.js'
 import { asyncHandler } from '../../../shared/middleware/asyncHandler.js'
 import { requireAuth } from '../../../shared/middleware/requireAuth.js'
 import { validateRequest } from '../../../shared/middleware/validation.js'
@@ -57,7 +58,11 @@ router.put(
   requireAuth,
   validateRequest({ params: affiliateIdParamSchema, body: updateAffiliateSchema }),
   asyncHandler(async (req, res) => {
-    const userId = req.user!!.id
+    const user = req.user
+    if (!user) {
+      throw new UnauthorizedError('User not authenticated')
+    }
+    const userId = user.id
 
     const { id } = req.params as AffiliateIdParam
     // Use the validated/parsed body directly from the request (after validation middleware)

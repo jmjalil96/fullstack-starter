@@ -5,6 +5,7 @@
 
 import { Router } from 'express'
 
+import { UnauthorizedError } from '../../../shared/errors/errors.js'
 import { asyncHandler } from '../../../shared/middleware/asyncHandler.js'
 import { requireAuth } from '../../../shared/middleware/requireAuth.js'
 import { validateRequest } from '../../../shared/middleware/validation.js'
@@ -30,7 +31,11 @@ router.get(
   requireAuth,
   validateRequest({ query: getAvailableOwnersSchema }),
   asyncHandler(async (req, res) => {
-    const userId = req.user!!.id
+    const user = req.user
+    if (!user) {
+      throw new UnauthorizedError('User not authenticated')
+    }
+    const userId = user.id
 
     // Zod validation ensures query params are validated
     // Type assertion safe because validateRequest middleware has validated
