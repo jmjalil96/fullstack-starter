@@ -11,8 +11,6 @@ import type {
   CoverageType,
   AvailableClientResponse,
   AvailableOwnerResponse,
-  CreateAffiliateRequest,
-  CreateAffiliateResponse,
   GetAffiliatesResponse,
   UpdateAffiliateRequest,
   UpdateAffiliateResponse,
@@ -180,55 +178,6 @@ export async function getAffiliateById(
   options?: RequestInit
 ): Promise<AffiliateDetailResponse> {
   return fetchAPI<AffiliateDetailResponse>(`/api/affiliates/${affiliateId}`, options)
-}
-
-/**
- * Create a new affiliate
- *
- * Business rules:
- * - OWNER affiliates require email
- * - DEPENDENT affiliates require primaryAffiliateId
- * - email is optional for DEPENDENT affiliates
- * - Primary affiliate must be OWNER type from same client
- *
- * @param data - Affiliate data (firstName, lastName, email, type, etc.)
- * @returns Created affiliate with all fields
- * @throws {ApiRequestError} If request fails (400, 403, 404, 409)
- *
- * @example
- * // Create OWNER affiliate
- * const owner = await createAffiliate({
- *   clientId: 'client-123',
- *   firstName: 'Juan',
- *   lastName: 'Pérez',
- *   email: 'juan.perez@company.com',
- *   phone: '+51987654321',
- *   documentType: 'DNI',
- *   documentNumber: '12345678',
- *   affiliateType: 'OWNER',
- *   coverageType: 'TPLUSF'
- * })
- *
- * @example
- * // Create DEPENDENT affiliate
- * const dependent = await createAffiliate({
- *   clientId: 'client-123',
- *   firstName: 'María',
- *   lastName: 'Pérez',
- *   dateOfBirth: '2010-05-15',
- *   documentType: 'DNI',
- *   documentNumber: '87654321',
- *   affiliateType: 'DEPENDENT',
- *   primaryAffiliateId: 'owner-affiliate-id'
- * })
- */
-export async function createAffiliate(
-  data: CreateAffiliateRequest
-): Promise<CreateAffiliateResponse> {
-  return fetchAPI<CreateAffiliateResponse>('/api/affiliates', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  })
 }
 
 /**

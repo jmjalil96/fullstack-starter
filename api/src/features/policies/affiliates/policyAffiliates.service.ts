@@ -148,24 +148,15 @@ export async function getPolicyAffiliates(
       ],
       select: {
         addedAt: true,
+        removedAt: true,
+        isActive: true,
         affiliate: {
           select: {
             id: true,
             firstName: true,
             lastName: true,
-            email: true,
-            phone: true,
-            dateOfBirth: true,
-            documentType: true,
-            documentNumber: true,
             affiliateType: true,
             coverageType: true,
-            primaryAffiliateId: true,
-            isActive: true,
-            createdAt: true,
-            primaryAffiliate: {
-              select: { firstName: true, lastName: true },
-            },
           },
         },
       },
@@ -178,19 +169,11 @@ export async function getPolicyAffiliates(
     id: pa.affiliate.id,
     firstName: pa.affiliate.firstName,
     lastName: pa.affiliate.lastName,
-    email: pa.affiliate.email,
-    phone: pa.affiliate.phone,
-    dateOfBirth: pa.affiliate.dateOfBirth?.toISOString().split('T')[0] ?? null,
-    documentType: pa.affiliate.documentType,
-    documentNumber: pa.affiliate.documentNumber,
     affiliateType: pa.affiliate.affiliateType as PolicyAffiliateResponse['affiliateType'],
     coverageType: pa.affiliate.coverageType as PolicyAffiliateResponse['coverageType'],
-    primaryAffiliateId: pa.affiliate.primaryAffiliateId,
-    primaryAffiliateFirstName: pa.affiliate.primaryAffiliate?.firstName ?? null,
-    primaryAffiliateLastName: pa.affiliate.primaryAffiliate?.lastName ?? null,
     addedAt: pa.addedAt.toISOString(),
-    isActive: pa.affiliate.isActive,
-    createdAt: pa.affiliate.createdAt.toISOString(),
+    removedAt: pa.removedAt?.toISOString() ?? null,
+    isActive: pa.isActive,
   }))
 
   // STEP 9: Calculate Pagination Metadata

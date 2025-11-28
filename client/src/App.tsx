@@ -1,28 +1,33 @@
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 
 import { ComponentTest } from './dev/ComponentTest'
+import { AdminLayout, UsersPage } from './features/admin'
 import { AffiliateDetail } from './features/affiliates/components/AffiliateDetail'
 import { AffiliatesList } from './features/affiliates/components/AffiliatesList'
+import { AgentDetail, AgentsList } from './features/agents'
 import { AiAssistant } from './features/ai/AiAssistant'
+import { AcceptInvite } from './features/auth/AcceptInvite'
 import { ForgotPassword } from './features/auth/ForgotPassword'
 import { Login } from './features/auth/Login'
 import { ResetPassword } from './features/auth/ResetPassword'
 import { Signup } from './features/auth/Signup'
-import { CreateCase } from './features/cases/CreateCase'
-import { MyCases } from './features/cases/MyCases'
-import { OpenCases } from './features/cases/OpenCases'
 import { ClaimDetail } from './features/claims/components/ClaimDetail'
 import { ClaimsList } from './features/claims/components/ClaimsList'
 import { NewClaim } from './features/claims/components/NewClaim'
 import { ClientDetail } from './features/clients/components/ClientDetail'
 import { ClientsList } from './features/clients/components/ClientsList'
+import { EmployeeDetail, EmployeesList } from './features/employees'
 import { Dashboard } from './features/home/Dashboard'
 import { Home } from './features/home/Home'
+import { InsurerDetail } from './features/insurers/components/InsurerDetail'
+import { InsurersList } from './features/insurers/components/InsurersList'
 import { InvoiceDetail } from './features/invoices/components/InvoiceDetail'
 import { InvoicesList } from './features/invoices/components/InvoicesList'
 import { Library } from './features/library/Library'
 import { PoliciesList } from './features/policies/components/PoliciesList'
 import { PolicyDetail } from './features/policies/components/PolicyDetail'
+import { TicketDetail } from './features/tickets/components/TicketDetail'
+import { TicketsList } from './features/tickets/components/TicketsList'
 import { QueryProvider } from './providers/QueryProvider'
 import { ErrorBoundary } from './shared/components/ErrorBoundary'
 import { MainLayout } from './shared/components/layout/templates/MainLayout'
@@ -47,6 +52,7 @@ function AppRoutes() {
           <Route path="/signup" element={<Signup />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/invite/:token" element={<AcceptInvite />} />
 
           {/* Protected Routes */}
           <Route
@@ -88,9 +94,9 @@ function AppRoutes() {
             <Route path="clientes/facturas/*" element={<Navigate to="/facturas" replace />} />
 
             {/* Casos (Centro de Resolución) */}
-            <Route path="casos/nuevo" element={<CreateCase />} />
-            <Route path="casos/mis-casos" element={<MyCases />} />
-            <Route path="casos/abiertos" element={<OpenCases />} />
+            <Route path="casos/mis-casos" element={<TicketsList />} />
+            <Route path="casos/abiertos" element={<TicketsList />} />
+            <Route path="casos/:id" element={<TicketDetail />} />
 
             {/* Other Pages */}
             <Route path="biblioteca" element={<Library />} />
@@ -98,6 +104,25 @@ function AppRoutes() {
 
             {/* 404 - Redirect to dashboard */}
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Route>
+
+          {/* Admin Panel - Separate layout, still protected */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute>
+                <AdminLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<Navigate to="aseguradoras" replace />} />
+            <Route path="aseguradoras" element={<InsurersList />} />
+            <Route path="aseguradoras/:id" element={<InsurerDetail />} />
+            <Route path="empleados" element={<EmployeesList />} />
+            <Route path="empleados/:id" element={<EmployeeDetail />} />
+            <Route path="agentes" element={<AgentsList />} />
+            <Route path="agentes/:id" element={<AgentDetail />} />
+            <Route path="usuarios" element={<UsersPage />} />
           </Route>
         </Routes>
       </ErrorBoundary>

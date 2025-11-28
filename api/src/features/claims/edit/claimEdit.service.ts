@@ -6,8 +6,9 @@
  * - Only SENIOR_CLAIM_MANAGERS and SUPER_ADMIN can edit claims
  * - Field editability determined by CURRENT status (strict two-step workflow)
  * - Status transitions validated by lifecycle blueprint
+ * - PENDING_INFO → SUBMITTED creates ClaimReprocess record
  * - All updates logged in audit trail
- * - Atomic updates (claim + audit log in single transaction)
+ * - Atomic updates (claim + audit log + reprocess in single transaction)
  */
 
 // ============================================================================
@@ -22,8 +23,12 @@ import {
   UnauthorizedError,
 } from '../../../shared/errors/errors.js'
 import { logger } from '../../../shared/middleware/logger.js'
+import {
+  CLAIM_LIFECYCLE_BLUEPRINT,
+  type ClaimLifecycleState,
+} from '../shared/claimLifecycle.blueprint.js'
 import { ClaimLifecycleValidator } from '../shared/claimLifecycle.validator.js'
-import type { ClaimStatus } from '../views/viewClaims.dto.js'
+import { getClaimById } from '../views/claimDetail.service.js'
 
 import type { ClaimUpdateResponse } from './claimEdit.dto.js'
 import type { ClaimUpdateParsed } from './claimEdit.schema.js'
@@ -50,16 +55,18 @@ interface UserContext {
  * Update a claim with strict lifecycle rules
  *
  * Authorization:
- * - Only SENIOR_CLAIM_MANAGERS (SUPER_ADMIN, CLAIMS_EMPLOYEE) can edit SUBMITTED/UNDER_REVIEW
- * - Only SUPER_ADMIN can access APPROVED/REJECTED terminal states
+ * - Only SENIOR_CLAIM_MANAGERS (SUPER_ADMIN, CLAIMS_EMPLOYEE) can edit non-terminal states
+ * - Only SUPER_ADMIN can access terminal states (RETURNED, SETTLED, CANCELLED)
  * - No resource-level access check needed (these roles have full claim access)
- * - NOTE: If scoped roles (AFFILIATE, CLIENT_ADMIN) ever gain edit rights,
- *   add resource-level checks (affiliateId, clientId validation)
  *
  * Workflow (strict two-step):
  * - Editable fields are determined by CURRENT status only
  * - When transitioning, only send fields editable in current status + status change
  * - After transition, send fields editable in new status in a second request
+ *
+ * Special transitions:
+ * - PENDING_INFO → SUBMITTED: Creates ClaimReprocess record with reprocessDate/Description
+ * - SUBMITTED → SETTLED: Requires all settlement fields
  *
  * Validation layers:
  * 1. Zod schema (type, format, constraints)
@@ -101,13 +108,22 @@ export async function updateClaim(
       claimSequence: true,
       claimNumber: true,
       status: true,
-      type: true,
       description: true,
-      amount: true,
-      approvedAmount: true,
+      careType: true,
+      diagnosisCode: true,
+      diagnosisDescription: true,
+      amountSubmitted: true,
+      amountApproved: true,
+      amountDenied: true,
+      amountUnprocessed: true,
+      deductibleApplied: true,
+      copayApplied: true,
       incidentDate: true,
       submittedDate: true,
-      resolvedDate: true,
+      settlementDate: true,
+      businessDays: true,
+      settlementNumber: true,
+      settlementNotes: true,
       createdAt: true,
       updatedAt: true,
       clientId: true,
@@ -115,6 +131,7 @@ export async function updateClaim(
       patientId: true,
       policyId: true,
       createdById: true,
+      updatedById: true,
     },
   })
 
@@ -123,27 +140,37 @@ export async function updateClaim(
   }
 
   // STEP 3: Role-Based Edit Permission for Current Status
-  // NOTE: Only SENIOR_CLAIM_MANAGERS + SUPER_ADMIN can edit claims.
-  // These roles have full claim access, so no resource-level check needed.
-  // If AFFILIATE or CLIENT_ADMIN ever gain edit rights, add access control here:
-  //   - AFFILIATE: check current.affiliateId === user.affiliate.id
-  //   - CLIENT_ADMIN: check current.clientId in user.clientAccess
-  if (!roleName || !validator.canUserEdit(roleName, current.status as ClaimStatus)) {
+  if (!roleName || !validator.canUserEdit(roleName, current.status as ClaimLifecycleState)) {
     logger.warn({ userId, role: roleName, claimStatus: current.status }, 'Unauthorized claim edit attempt')
     throw new ForbiddenError(`No tienes permiso para editar reclamos en estado ${current.status}`)
   }
 
-  // STEP 4: Separate Status from Field Updates
-  // Status is handled separately and NOT part of forbidden field checks
-  const { status: toStatus, ...fieldUpdates } = updates
+  // STEP 4: Separate Status and Reprocess Fields from Field Updates
+  const { status: toStatus, reprocessDate, reprocessDescription, ...fieldUpdates } = updates
 
-  // STEP 5: Validate Field Editability (Strict Workflow)
-  // Checks forbidden fields against CURRENT status only (not destination)
-  // This enforces strict two-step workflow for status transitions
-  const forbidden = validator.forbiddenFields(
+  // STEP 5: Determine if we're transitioning status
+  const isTransitioning = toStatus && toStatus !== current.status
+  const isPendingInfoToSubmitted =
+    isTransitioning && current.status === 'PENDING_INFO' && toStatus === 'SUBMITTED'
+
+  // STEP 6: Validate Field Editability (Strict Workflow)
+  // When transitioning, exclude transition requirement fields from forbidden check
+  let forbidden = validator.forbiddenFields(
     fieldUpdates as Record<string, unknown>,
-    current.status as ClaimStatus
+    current.status as ClaimLifecycleState
   )
+
+  // If transitioning, get the transition requirements and allow those fields
+  if (isTransitioning && forbidden.length > 0) {
+    const fromStatus = current.status as ClaimLifecycleState
+    const rules = CLAIM_LIFECYCLE_BLUEPRINT[fromStatus]
+    const transitionReqs =
+      rules?.transitionRequirements[toStatus as keyof typeof rules.transitionRequirements] || []
+    const allowedForTransition = transitionReqs as readonly string[]
+
+    // Filter out fields that are allowed for this transition
+    forbidden = forbidden.filter((field) => !allowedForTransition.includes(field))
+  }
 
   if (forbidden.length > 0) {
     logger.warn(
@@ -155,11 +182,12 @@ export async function updateClaim(
     )
   }
 
-  // STEP 6: Validate Status Transition (If Changing)
-  if (toStatus && toStatus !== current.status) {
+  // STEP 7: Validate Status Transition (If Changing)
+
+  if (isTransitioning) {
     const canMove = validator.canTransition(
-      current.status as ClaimStatus,
-      toStatus as ClaimStatus
+      current.status as ClaimLifecycleState,
+      toStatus as ClaimLifecycleState
     )
 
     if (!canMove) {
@@ -170,13 +198,16 @@ export async function updateClaim(
       throw new BadRequestError(`No se puede cambiar de ${current.status} a ${toStatus}`)
     }
 
-    // STEP 7: Validate Transition Requirements
-    // Requirements validated against MERGED state (current + updates)
-    // This allows setting required fields and status in same request
+    // STEP 8: Validate Transition Requirements
+    // For PENDING_INFO → SUBMITTED, include reprocessDate and reprocessDescription in merged state
+    const updatesForValidation = isPendingInfoToSubmitted
+      ? { ...updates, reprocessDate, reprocessDescription }
+      : updates
+
     const missing = validator.missingRequirements(
       current as unknown as Record<string, unknown>,
-      updates as unknown as Record<string, unknown>,
-      toStatus as ClaimStatus
+      updatesForValidation as unknown as Record<string, unknown>,
+      toStatus as ClaimLifecycleState
     )
 
     if (missing.length > 0) {
@@ -190,36 +221,41 @@ export async function updateClaim(
     }
   }
 
-  // STEP 8: Clean Data for Prisma
+  // STEP 9: Clean Data for Prisma
   // Filter out undefined values (not provided in request)
   // Keep null values (intentional field clearing)
-  const dataEntries = Object.entries(updates).filter(([, v]) => v !== undefined)
-  const data = Object.fromEntries(dataEntries)
+  // Remove reprocessDate/Description as they go to ClaimReprocess
+  const { reprocessDate: _, reprocessDescription: __, ...cleanUpdates } = updates
+  const dataEntries = Object.entries(cleanUpdates).filter(([, v]) => v !== undefined)
+  const data = Object.fromEntries(dataEntries) as Record<string, unknown>
 
-  // STEP 9: Atomic Update + Audit Log (Transaction)
-  // Both operations succeed or both fail
-  const updated = await db.$transaction(async (tx) => {
-    // Update claim with all relations for DTO transformation
-    const updatedClaim = await tx.claim.update({
+  // Always update updatedById
+  data.updatedById = userId
+
+  // STEP 10: Atomic Update + Audit Log + ClaimReprocess (Transaction)
+  await db.$transaction(async (tx) => {
+    // Create ClaimReprocess record if PENDING_INFO → SUBMITTED
+    if (isPendingInfoToSubmitted && reprocessDate && reprocessDescription) {
+      await tx.claimReprocess.create({
+        data: {
+          claimId,
+          reprocessDate: reprocessDate,
+          reprocessDescription: reprocessDescription,
+          businessDays: (fieldUpdates.businessDays as number | null | undefined) ?? null,
+          createdById: userId,
+        },
+      })
+
+      logger.info(
+        { userId, claimId, reprocessDate, reprocessDescription },
+        'ClaimReprocess record created'
+      )
+    }
+
+    // Update claim
+    await tx.claim.update({
       where: { id: claimId },
       data,
-      include: {
-        client: {
-          select: { name: true },
-        },
-        affiliate: {
-          select: { firstName: true, lastName: true },
-        },
-        patient: {
-          select: { firstName: true, lastName: true },
-        },
-        policy: {
-          select: { policyNumber: true },
-        },
-        createdBy: {
-          select: { name: true },
-        },
-      },
     })
 
     // Create audit log with before/after diff
@@ -232,50 +268,20 @@ export async function updateClaim(
         clientId: current.clientId,
         changes: {
           before: current,
-          after: updatedClaim,
+          after: { ...current, ...data },
         },
         metadata: {
           role: roleName,
-          statusTransition: toStatus
-            ? { from: current.status, to: toStatus }
-            : null,
+          statusTransition: isTransitioning ? { from: current.status, to: toStatus } : null,
+          reprocessCreated: isPendingInfoToSubmitted,
         },
       },
     })
-
-    return updatedClaim
   })
 
-  // STEP 10: Transform to DTO and Return
-  // Convert dates to ISO strings and calculate patientRelationship
-  const response: ClaimUpdateResponse = {
-    id: updated.id,
-    claimSequence: updated.claimSequence,
-    claimNumber: updated.claimNumber,
-    status: updated.status as ClaimUpdateResponse['status'],
-    type: updated.type,
-    description: updated.description,
-    amount: updated.amount,
-    approvedAmount: updated.approvedAmount,
-    incidentDate: updated.incidentDate?.toISOString().split('T')[0] ?? null,
-    submittedDate: updated.submittedDate?.toISOString().split('T')[0] ?? null,
-    resolvedDate: updated.resolvedDate?.toISOString().split('T')[0] ?? null,
-    createdAt: updated.createdAt.toISOString(),
-    updatedAt: updated.updatedAt.toISOString(),
-    clientId: updated.clientId,
-    clientName: updated.client.name,
-    affiliateId: updated.affiliateId,
-    affiliateFirstName: updated.affiliate.firstName,
-    affiliateLastName: updated.affiliate.lastName,
-    patientId: updated.patientId,
-    patientFirstName: updated.patient.firstName,
-    patientLastName: updated.patient.lastName,
-    patientRelationship: updated.patientId === updated.affiliateId ? 'self' : 'dependent',
-    policyId: updated.policyId,
-    policyNumber: updated.policy?.policyNumber ?? null,
-    createdById: updated.createdById,
-    createdByName: updated.createdBy.name,
-  }
+  // STEP 10: Fetch and Return Updated Claim Detail
+  // Use the existing getClaimById service for consistent response
+  const response = await getClaimById(userId, claimId)
 
   // Log successful update
   logger.info(

@@ -81,7 +81,6 @@ export async function getInvoiceById(
     select: {
       id: true,
       invoiceNumber: true,
-      insurerInvoiceNumber: true,
       status: true,
       paymentStatus: true,
       billingPeriod: true,
@@ -93,11 +92,6 @@ export async function getInvoiceById(
       expectedAmount: true,
       amountMatches: true,
       discrepancyNotes: true,
-      fileUrl: true,
-      fileName: true,
-      fileSize: true,
-      mimeType: true,
-      uploadedAt: true,
       issueDate: true,
       dueDate: true,
       paymentDate: true,
@@ -105,14 +99,10 @@ export async function getInvoiceById(
       updatedAt: true,
       clientId: true,
       insurerId: true,
-      uploadedById: true,
       client: {
         select: { name: true },
       },
       insurer: {
-        select: { name: true },
-      },
-      uploadedBy: {
         select: { name: true },
       },
       policies: {
@@ -160,7 +150,6 @@ export async function getInvoiceById(
   const response: InvoiceDetailResponse = {
     id: invoice.id,
     invoiceNumber: invoice.invoiceNumber,
-    insurerInvoiceNumber: invoice.insurerInvoiceNumber,
     status: invoice.status as InvoiceDetailResponse['status'],
     paymentStatus: invoice.paymentStatus as InvoiceDetailResponse['paymentStatus'],
     billingPeriod: invoice.billingPeriod,
@@ -172,11 +161,6 @@ export async function getInvoiceById(
     expectedAmount: invoice.expectedAmount,
     amountMatches: invoice.amountMatches,
     discrepancyNotes: invoice.discrepancyNotes,
-    fileUrl: invoice.fileUrl,
-    fileName: invoice.fileName,
-    fileSize: invoice.fileSize,
-    mimeType: invoice.mimeType,
-    uploadedAt: invoice.uploadedAt?.toISOString() ?? null,
     issueDate: invoice.issueDate.toISOString().split('T')[0],
     dueDate: invoice.dueDate?.toISOString().split('T')[0] ?? null,
     paymentDate: invoice.paymentDate?.toISOString().split('T')[0] ?? null,
@@ -186,8 +170,6 @@ export async function getInvoiceById(
     clientName: invoice.client.name,
     insurerId: invoice.insurerId,
     insurerName: invoice.insurer.name,
-    uploadedById: invoice.uploadedById,
-    uploadedByName: invoice.uploadedBy?.name ?? null,
     policies: invoice.policies.map((ip) => ({
       policyId: ip.policyId,
       policyNumber: ip.policy.policyNumber,

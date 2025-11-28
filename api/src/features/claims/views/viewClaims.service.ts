@@ -11,10 +11,7 @@ import { Prisma } from '@prisma/client'
 
 import { db } from '../../../config/database.js'
 import { ALL_AUTHORIZED_ROLES, BROKER_EMPLOYEES } from '../../../shared/constants/roles.js'
-import {
-  ForbiddenError,
-  UnauthorizedError,
-} from '../../../shared/errors/errors.js'
+import { ForbiddenError, UnauthorizedError } from '../../../shared/errors/errors.js'
 import { logger } from '../../../shared/middleware/logger.js'
 
 import type {
@@ -110,8 +107,32 @@ export async function getClaims(
   }
 
   if (query.search) {
-    // Search by claim number (already uppercased by schema)
-    where.claimNumber = query.search
+    // Multi-field partial match search (case-insensitive)
+    const searchTerm = query.search
+    where.OR = [
+      { claimNumber: { contains: searchTerm, mode: 'insensitive' } },
+      { affiliate: { firstName: { contains: searchTerm, mode: 'insensitive' } } },
+      { affiliate: { lastName: { contains: searchTerm, mode: 'insensitive' } } },
+      { patient: { firstName: { contains: searchTerm, mode: 'insensitive' } } },
+      { patient: { lastName: { contains: searchTerm, mode: 'insensitive' } } },
+    ]
+  }
+
+  // Date range filtering
+  if (query.dateField && (query.dateFrom || query.dateTo)) {
+    const dateFilter: Prisma.DateTimeFilter = {}
+
+    if (query.dateFrom) {
+      dateFilter.gte = new Date(query.dateFrom)
+    }
+
+    if (query.dateTo) {
+      // End of day for inclusive range
+      dateFilter.lte = new Date(`${query.dateTo}T23:59:59.999Z`)
+    }
+
+    // Apply filter to the selected date field
+    where[query.dateField] = dateFilter
   }
 
   if (query.clientId) {
@@ -124,7 +145,11 @@ export async function getClaims(
       const hasAccess = user.clientAccess.some((uc) => uc.clientId === query.clientId)
       if (!hasAccess) {
         logger.warn(
-          { userId, requestedClient: query.clientId, accessibleClients: user.clientAccess.map((c) => c.clientId) },
+          {
+            userId,
+            requestedClient: query.clientId,
+            accessibleClients: user.clientAccess.map((c) => c.clientId),
+          },
           'CLIENT_ADMIN attempted unauthorized client filter'
         )
         throw new ForbiddenError('No tienes acceso a este cliente')
@@ -156,9 +181,11 @@ export async function getClaims(
         clientId: true,
         affiliateId: true,
         patientId: true,
-        amount: true,
-        approvedAmount: true,
+        careType: true,
+        amountSubmitted: true,
+        amountApproved: true,
         submittedDate: true,
+        settlementDate: true,
         createdAt: true,
         client: {
           select: { name: true },
@@ -187,9 +214,11 @@ export async function getClaims(
     patientId: claim.patientId,
     patientFirstName: claim.patient.firstName,
     patientLastName: claim.patient.lastName,
-    amount: claim.amount,
-    approvedAmount: claim.approvedAmount,
+    careType: claim.careType as ClaimListItemResponse['careType'],
+    amountSubmitted: claim.amountSubmitted,
+    amountApproved: claim.amountApproved,
     submittedDate: claim.submittedDate?.toISOString().split('T')[0] ?? null,
+    settlementDate: claim.settlementDate?.toISOString().split('T')[0] ?? null,
     createdAt: claim.createdAt.toISOString(),
   }))
 
@@ -210,7 +239,14 @@ export async function getClaims(
     {
       userId,
       role: roleName,
-      filters: { status: query.status, clientId: query.clientId, search: query.search },
+      filters: {
+        status: query.status,
+        clientId: query.clientId,
+        search: query.search,
+        dateField: query.dateField,
+        dateFrom: query.dateFrom,
+        dateTo: query.dateTo,
+      },
       resultCount: transformedClaims.length,
       total,
       page,

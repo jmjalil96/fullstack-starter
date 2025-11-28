@@ -94,6 +94,9 @@ export function UserMenu() {
       case 'settings':
         navigate('/configuracion')
         break
+      case 'admin':
+        navigate('/admin')
+        break
       case 'logout':
         await signOut()
         navigate('/login')

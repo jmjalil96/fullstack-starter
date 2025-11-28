@@ -34,21 +34,28 @@ model User {
   clientAccess UserClient[]
 
   // Activity relations
-  createdClaims     Claim[]           @relation("ClaimCreator")
-  createdTickets    Ticket[]          @relation("TicketCreator")
-  assignedTickets   Ticket[]          @relation("TicketAssignee")
-  ticketMessages    TicketMessage[]
-  uploadedDocuments Document[]
-  notifications     Notification[]
-  auditLogs         AuditLog[]
-  uploadedInvoices  Invoice[]
-  claimAttachments  ClaimAttachment[]
-  documentGrants    DocumentAccess[]
+  createdClaims    Claim[]          @relation("ClaimCreator")
+  updatedClaims    Claim[]          @relation("ClaimUpdater")
+  claimInvoices    ClaimInvoice[]
+  claimReprocesses ClaimReprocess[]
+  createdTickets   Ticket[]         @relation("TicketCreator")
+  reportedTickets  Ticket[]        @relation("TicketReporter")
+  assignedTickets  Ticket[]        @relation("TicketAssignee")
+  ticketMessages   TicketMessage[]
+  notifications    Notification[]
+  auditLogs        AuditLog[]
+
+  // File storage relations
+  uploadedFiles  File[]
+  documentGrants DocumentAccess[]
 
   // Optional: Link to business entities
   employee  Employee?
   agent     Agent?
   affiliate Affiliate?
+
+  // Invitations created by this user
+  createdInvitations Invitation[] @relation("InvitationCreator")
 
   @@index([globalRoleId])
 }
@@ -109,7 +116,8 @@ model Role {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users User[]
+  users       User[]
+  invitations Invitation[]
 
   @@index([name])
   @@index([isActive])
@@ -156,8 +164,11 @@ model Client {
   claims         Claim[]
   invoices       Invoice[]
   tickets        Ticket[]
-  documentAccess DocumentAccess[]
   auditLogs      AuditLog[]
+
+  // File storage relations
+  files          File[]
+  documentAccess DocumentAccess[]
 
   @@index([name])
   @@index([isActive])
@@ -170,6 +181,8 @@ model Insurer {
   email   String?
   phone   String?
   website String?
+
+  billingCutoffDay Int @default(25)
 
   isActive Boolean @default(true)
 
@@ -245,6 +258,10 @@ model Affiliate {
   affiliateType AffiliateType @default(OWNER)
   coverageType  CoverageType?
 
+  // Tier change tracking for T+1 billing adjustments
+  tierChangedAt        DateTime?     // When coverage tier was last changed
+  previousCoverageType CoverageType? // Tier before the change (for pro-rata calculation)
+
   primaryAffiliateId String?
   primaryAffiliate   Affiliate?  @relation("AffiliateDependents", fields: [primaryAffiliateId], references: [id], onDelete: SetNull)
   dependents         Affiliate[] @relation("AffiliateDependents")
@@ -263,6 +280,7 @@ model Affiliate {
   policies          PolicyAffiliate[]
   claimsAsAffiliate Claim[]           @relation("ClaimAffiliate")
   claimsAsPatient   Claim[]           @relation("ClaimPatient")
+  invitation        Invitation?
 
   @@index([clientId])
   @@index([userId])
@@ -288,6 +306,8 @@ model PolicyAffiliate {
   @@index([policyId])
   @@index([affiliateId])
   @@index([isActive])
+  @@index([policyId, addedAt])    // For base affiliate date range queries
+  @@index([policyId, removedAt]) // For window affiliate date range queries
 }
 
 model Employee {
@@ -358,24 +378,45 @@ model Claim {
   clientId String
   client   Client @relation(fields: [clientId], references: [id])
 
-  status         ClaimStatus @default(SUBMITTED)
-  type           String?
-  description    String?
-  amount         Float?
-  approvedAmount Float?
+  status      ClaimStatus @default(DRAFT)
+  description String?
 
-  incidentDate  DateTime? @db.Date
-  submittedDate DateTime? @db.Date
-  resolvedDate  DateTime? @db.Date
+  // Diagnosis information
+  careType             CareType?
+  diagnosisCode        String?
+  diagnosisDescription String?
+
+  // Financial fields
+  amountSubmitted   Float?
+  amountApproved    Float?
+  amountDenied      Float?
+  amountUnprocessed Float?
+  deductibleApplied Float?
+  copayApplied      Float?
+
+  // Date fields
+  incidentDate   DateTime? @db.Date
+  submittedDate  DateTime? @db.Date
+  settlementDate DateTime? @db.Date
+
+  // Settlement fields
+  businessDays     Int?
+  settlementNumber String?
+  settlementNotes  String?
 
   createdById String
   createdBy   User   @relation("ClaimCreator", fields: [createdById], references: [id])
 
+  updatedById String?
+  updatedBy   User?  @relation("ClaimUpdater", fields: [updatedById], references: [id])
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  attachments ClaimAttachment[]
+  files       ClaimFile[]
   tickets     Ticket[]
+  invoices    ClaimInvoice[]
+  reprocesses ClaimReprocess[]
 
   @@index([claimNumber])
   @@index([policyId])
@@ -384,14 +425,15 @@ model Claim {
   @@index([clientId])
   @@index([status])
   @@index([createdById])
+  @@index([updatedById])
   @@index([submittedDate])
+  @@index([settlementDate])
   @@index([createdAt])
 }
 
 model Invoice {
-  id                   String @id @default(cuid())
-  invoiceNumber        String @unique
-  insurerInvoiceNumber String
+  id            String @id @default(cuid())
+  invoiceNumber String
 
   insurerId String
   insurer   Insurer @relation(fields: [insurerId], references: [id])
@@ -415,24 +457,15 @@ model Invoice {
 
   discrepancyNotes String?
 
-  // Invoice file attachments
-  fileUrl    String?
-  fileName   String?
-  fileSize   Int?
-  mimeType   String?
-  uploadedAt DateTime?
-
   issueDate   DateTime
   dueDate     DateTime?
   paymentDate DateTime?
-
-  uploadedById String?
-  uploadedBy   User?   @relation(fields: [uploadedById], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   policies InvoicePolicy[]
+  files    InvoiceFile[]
 
   @@index([invoiceNumber])
   @@index([insurerId])
@@ -462,19 +495,23 @@ model InvoicePolicy {
 }
 
 model Ticket {
-  id           String @id @default(cuid())
-  ticketNumber String @unique
+  id             String @id @default(cuid())
+  ticketSequence Int    @unique @default(autoincrement())
+  ticketNumber   String @unique
 
   subject  String
   status   TicketStatus   @default(OPEN)
   priority TicketPriority @default(NORMAL)
   category String?
 
-  clientId String?
-  client   Client? @relation(fields: [clientId], references: [id])
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id])
 
   relatedClaimId String?
   relatedClaim   Claim?  @relation(fields: [relatedClaimId], references: [id])
+
+  reporterId String?
+  reporter   User?   @relation("TicketReporter", fields: [reporterId], references: [id])
 
   createdById String
   createdBy   User   @relation("TicketCreator", fields: [createdById], references: [id])
@@ -492,6 +529,7 @@ model Ticket {
   @@index([ticketNumber])
   @@index([clientId])
   @@index([relatedClaimId])
+  @@index([reporterId])
   @@index([createdById])
   @@index([assignedToId])
   @@index([status])
@@ -513,38 +551,224 @@ model TicketMessage {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  files TicketFile[]
+
   @@index([ticketId])
   @@index([authorId])
   @@index([createdAt])
 }
 
+// ============================================================================
+// FILE STORAGE (S3/Cloudflare R2 Compatible)
+// ============================================================================
+
+enum FileEntityType {
+  CLAIM
+  INVOICE
+  TICKET
+  DOCUMENT
+}
+
+// Central file record - represents one S3/R2 object
+model File {
+  id String @id @default(cuid())
+
+  // Storage location (S3/R2)
+  storageKey    String @unique // "claims/abc123/receipt.pdf"
+  storageBucket String @default("default")
+
+  // File metadata
+  originalName String // Original filename for display
+  fileSize     BigInt // Bytes (BigInt for >2GB files)
+  mimeType     String // "application/pdf", "image/jpeg"
+  checksum     String? // SHA256 for integrity verification
+
+  // Workdrive metadata (denormalized for efficient browsing)
+  entityType FileEntityType // Which module this belongs to
+  entityId   String // ID of parent record (claimId, invoiceId, etc.)
+
+  // Client scope (for multi-tenant browsing)
+  clientId String?
+  client   Client? @relation(fields: [clientId], references: [id])
+
+  // Upload tracking
+  uploadedById String
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id])
+  uploadedAt   DateTime @default(now())
+
+  // Soft delete
+  deletedAt DateTime?
+
+  // Entity relations
+  claimFile   ClaimFile?
+  invoiceFile InvoiceFile?
+  ticketFile  TicketFile?
+  document    Document?
+
+  // Workdrive indexes
+  @@index([entityType, entityId]) // Browse by module + record
+  @@index([entityType, clientId]) // Browse module filtered by client
+  @@index([clientId, entityType]) // Browse client's files by module
+  @@index([clientId, uploadedAt]) // Client's recent files
+
+  // General indexes
+  @@index([storageKey])
+  @@index([uploadedById])
+  @@index([uploadedAt])
+  @@index([mimeType])
+  @@index([deletedAt])
+}
+
+// ============================================================================
+// ENTITY FILE LINKS
+// ============================================================================
+
+enum ClaimFileCategory {
+  RECEIPT
+  PRESCRIPTION
+  LAB_REPORT
+  DISCHARGE_SUMMARY
+  AUTHORIZATION
+  OTHER
+}
+
+// Claim files - multiple per claim
+model ClaimFile {
+  id String @id @default(cuid())
+
+  fileId String @unique
+  file   File   @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  claimId String
+  claim   Claim  @relation(fields: [claimId], references: [id], onDelete: Cascade)
+
+  // Claim-specific metadata
+  category     ClaimFileCategory?
+  description  String?
+  displayOrder Int @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@index([claimId])
+  @@index([category])
+}
+
+// Claim invoices - tracks individual invoices/receipts for reimbursement
+model ClaimInvoice {
+  id String @id @default(cuid())
+
+  claimId String
+  claim   Claim  @relation(fields: [claimId], references: [id], onDelete: Cascade)
+
+  invoiceNumber   String
+  providerName    String
+  amountSubmitted Float
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([claimId])
+  @@index([createdById])
+}
+
+// Claim reprocesses - tracks each reprocess cycle when insurer requests more info
+model ClaimReprocess {
+  id String @id @default(cuid())
+
+  claimId String
+  claim   Claim  @relation(fields: [claimId], references: [id], onDelete: Cascade)
+
+  reprocessDate        DateTime @db.Date
+  reprocessDescription String
+  businessDays         Int?
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([claimId])
+  @@index([createdById])
+}
+
+enum InvoiceFileCategory {
+  INVOICE_PDF
+  BREAKDOWN
+  RECEIPT
+  SUPPORTING_DOC
+  OTHER
+}
+
+// Invoice files - multiple per invoice
+model InvoiceFile {
+  id String @id @default(cuid())
+
+  fileId String @unique
+  file   File   @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  // Invoice-specific metadata
+  category     InvoiceFileCategory?
+  description  String?
+  displayOrder Int @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@index([invoiceId])
+  @@index([category])
+}
+
+// Ticket message files - multiple per message
+model TicketFile {
+  id String @id @default(cuid())
+
+  fileId String @unique
+  file   File   @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  messageId String
+  message   TicketMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  displayOrder Int @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@index([messageId])
+}
+
+// ============================================================================
+// DOCUMENT LIBRARY (standalone shared documents)
+// ============================================================================
+
+// Library documents - for sharing policies, guides, etc. with clients
 model Document {
   id String @id @default(cuid())
 
+  fileId String @unique
+  file   File   @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  // Document metadata
   title       String
   description String?
   category    String?
+  tags        String[] // For search/filtering
 
-  fileUrl  String
-  fileName String
-  fileSize Int?
-  mimeType String?
-
-  isPublic Boolean @default(false)
-  isActive Boolean @default(true)
-
-  uploadedById String
-  uploadedBy   User   @relation(fields: [uploadedById], references: [id])
+  // Visibility controls
+  isPublic Boolean @default(false) // Visible to all clients
+  isActive Boolean @default(true) // Soft disable
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Per-client access (when not public)
   clientAccess DocumentAccess[]
 
   @@index([category])
   @@index([isPublic])
   @@index([isActive])
-  @@index([uploadedById])
 }
 
 model DocumentAccess {
@@ -567,28 +791,6 @@ model DocumentAccess {
 // ============================================================================
 // OPTIONAL TABLES
 // ============================================================================
-
-model ClaimAttachment {
-  id String @id @default(cuid())
-
-  fileUrl  String
-  fileName String
-  fileSize Int?
-  mimeType String?
-
-  description String?
-
-  claimId String
-  claim   Claim  @relation(fields: [claimId], references: [id], onDelete: Cascade)
-
-  uploadedById String
-  uploadedBy   User   @relation(fields: [uploadedById], references: [id])
-
-  createdAt DateTime @default(now())
-
-  @@index([claimId])
-  @@index([uploadedById])
-}
 
 model AuditLog {
   id String @id @default(cuid())
@@ -646,6 +848,37 @@ model Notification {
   @@index([resourceType, resourceId])
 }
 
+model Invitation {
+  id    String @id @default(cuid())
+  email String
+  token String @unique
+
+  type   InvitationType
+  status InvitationStatus @default(PENDING)
+
+  roleId String
+  role   Role   @relation(fields: [roleId], references: [id])
+
+  entityData Json? // For EMPLOYEE/AGENT: {firstName, lastName, position, etc.}
+
+  affiliateId String?    @unique
+  affiliate   Affiliate? @relation(fields: [affiliateId], references: [id])
+
+  expiresAt  DateTime
+  acceptedAt DateTime?
+
+  createdById String
+  createdBy   User   @relation("InvitationCreator", fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([token])
+  @@index([status])
+  @@index([type])
+  @@index([createdById])
+}
+
 // ============================================================================
 // ENUMS
 // ============================================================================
@@ -669,10 +902,21 @@ enum CoverageType {
 }
 
 enum ClaimStatus {
+  DRAFT
+  PENDING_INFO
+  VALIDATION
   SUBMITTED
-  UNDER_REVIEW
-  APPROVED
-  REJECTED
+  RETURNED
+  SETTLED
+  CANCELLED
+}
+
+enum CareType {
+  AMBULATORY
+  HOSPITALIZATION
+  MATERNITY
+  EMERGENCY
+  OTHER
 }
 
 enum InvoiceStatus {
@@ -691,7 +935,6 @@ enum TicketStatus {
   OPEN
   IN_PROGRESS
   WAITING_ON_CLIENT
-  WAITING_ON_INSURER
   RESOLVED
   CLOSED
 }
@@ -708,4 +951,17 @@ enum NotificationType {
   SUCCESS
   WARNING
   ERROR
+}
+
+enum InvitationType {
+  EMPLOYEE
+  AGENT
+  AFFILIATE
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
 }

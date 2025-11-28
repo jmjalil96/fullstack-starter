@@ -45,11 +45,14 @@ export function StatusTransitionModal({
   const currentConfig = INVOICE_LIFECYCLE[originStatusRef.current]
   const targetConfig = INVOICE_LIFECYCLE[targetStatus]
 
-  // Requirements come from ORIGIN status (frozen, won't change)
-  const requirements = useMemo(
-    () => currentConfig.requirements || [],
-    [currentConfig.requirements]
-  )
+  // Requirements: prefer per-transition, fallback to origin-level requirements
+  const requirements = useMemo(() => {
+    const perTransition = currentConfig.transitionRequirements?.[targetStatus]
+    if (perTransition) {
+      return perTransition
+    }
+    return currentConfig.requirements || []
+  }, [currentConfig, targetStatus])
 
   // Check which requirements are met
   const requirementStatus = useMemo(() => {
@@ -65,11 +68,33 @@ export function StatusTransitionModal({
 
   const handleConfirm = async () => {
     try {
-      await updateMutation.mutateAsync({
+      const result = await updateMutation.mutateAsync({
         id: invoice.id,
         data: { status: targetStatus },
       })
-      toast.success(`Factura cambiada a ${targetConfig.label}`)
+
+      // Check actual resulting status (system may override user's request)
+      const actualStatus = result.status
+      const wasOverridden = actualStatus !== targetStatus
+
+      // Show contextual toast based on actual resulting status
+      if (actualStatus === 'VALIDATED') {
+        toast.success('Factura validada correctamente')
+      } else if (actualStatus === 'DISCREPANCY') {
+        if (wasOverridden) {
+          // User requested VALIDATED but system determined DISCREPANCY
+          toast.warning('Marcada como discrepancia - los montos no coinciden')
+        } else {
+          // User explicitly requested DISCREPANCY
+          toast.info('Factura marcada con discrepancia')
+        }
+      } else if (actualStatus === 'CANCELLED') {
+        toast.info('Factura cancelada')
+      } else {
+        // Fallback for any other status
+        toast.success(`Estado cambiado a ${INVOICE_LIFECYCLE[actualStatus].label}`)
+      }
+
       setTimeout(() => onClose(), 500)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error al cambiar estado de factura'

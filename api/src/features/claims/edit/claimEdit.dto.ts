@@ -7,6 +7,7 @@
 
 import type { ClaimLifecycleState } from '../shared/claimLifecycle.blueprint.js'
 import type { ClaimDetailResponse } from '../views/claimDetail.dto.js'
+import type { CareType } from '../views/viewClaims.dto.js'
 
 /**
  * Request body for updating a claim
@@ -15,84 +16,108 @@ import type { ClaimDetailResponse } from '../views/claimDetail.dto.js'
  * Fields marked as nullable can be explicitly set to null to clear them.
  *
  * Field editability varies by claim status:
- * - SUBMITTED: description, amount, policyId, incidentDate, type, submittedDate
- * - UNDER_REVIEW: approvedAmount, resolvedDate
- * - APPROVED/REJECTED: No fields editable (terminal states, SUPER_ADMIN only)
+ * - DRAFT: careType, diagnosisCode, diagnosisDescription, amountSubmitted, incidentDate, submittedDate, description, policyId
+ * - VALIDATION: (same as DRAFT for corrections)
+ * - SUBMITTED: businessDays only
+ * - PENDING_INFO: (all DRAFT fields + businessDays)
+ * - RETURNED/SETTLED/CANCELLED: No fields editable (terminal states, SUPER_ADMIN only)
  *
  * Status transition workflow (STRICT - enforced by validator):
  * - Only fields editable in CURRENT status can be sent in update request
  * - When changing status, use 2-step workflow:
  *   1. Transition status + send fields editable in current status
  *   2. After status changed, send fields editable in new status
- * - This enforces clear separation between transition and data entry
  *
- * Status transitions trigger lifecycle validation:
- * - SUBMITTED → UNDER_REVIEW (requires all base fields)
- * - UNDER_REVIEW → APPROVED/REJECTED (requires approvedAmount + resolvedDate)
+ * Special transitions:
+ * - PENDING_INFO → SUBMITTED: Must provide reprocessDate + reprocessDescription
+ *   (These create a ClaimReprocess record)
+ * - SUBMITTED → SETTLED: Must provide all settlement fields
  *
  * Date format:
- * - All date fields expect ISO 8601 strings (e.g., "2025-01-15T10:30:00.000Z")
+ * - All date fields expect ISO 8601 strings (e.g., "2025-01-15")
  * - Validation/parsing handled by Zod schema layer
- *
- * @example
- * // Simple update (edit fields in current status)
- * {
- *   "description": "Updated claim description",
- *   "amount": 150.50
- * }
- *
- * @example
- * // Step 1: Transition from SUBMITTED to UNDER_REVIEW
- * // (can only send SUBMITTED-editable fields + status)
- * {
- *   "status": "UNDER_REVIEW",
- *   "policyId": "xyz123",
- *   "description": "Final description before review"
- * }
- *
- * @example
- * // Step 2: Set approval decision (after status is UNDER_REVIEW)
- * // (now can send UNDER_REVIEW-editable fields)
- * {
- *   "approvedAmount": 100.00,
- *   "resolvedDate": "2025-11-07T12:00:00.000Z"
- * }
- *
- * @example
- * // Clear optional field by setting to null
- * {
- *   "type": null,
- *   "amount": null
- * }
  */
 export interface ClaimUpdateRequest {
+  // ============================================================================
+  // BASIC FIELDS (editable in DRAFT, VALIDATION, PENDING_INFO)
+  // ============================================================================
+
   /** Claim description/narrative (3-5000 chars) */
   description?: string | null
 
-  /** Claimed amount (can be null to clear) */
-  amount?: number | null
+  /** Type of care (Ambulatory, Hospitalization, etc.) */
+  careType?: CareType | null
 
-  /** Approved amount after review (can be null to clear) */
-  approvedAmount?: number | null
+  /** ICD diagnosis code */
+  diagnosisCode?: string | null
+
+  /** Diagnosis description text */
+  diagnosisDescription?: string | null
+
+  /** Total amount submitted for reimbursement */
+  amountSubmitted?: number | null
+
+  /** When the incident occurred (ISO date string) */
+  incidentDate?: string
+
+  /** When the claim was submitted to insurer (ISO date string) */
+  submittedDate?: string
 
   /** Policy ID covering this claim (can be null to clear) */
   policyId?: string | null
 
-  /** When the incident occurred (ISO 8601 date string) */
-  incidentDate?: string
+  // ============================================================================
+  // TRACKING FIELDS (editable in SUBMITTED, PENDING_INFO)
+  // ============================================================================
 
-  /** When the claim was submitted (ISO 8601 date string, manual entry) */
-  submittedDate?: string
+  /** Business days tracking */
+  businessDays?: number | null
 
-  /** When the claim was resolved (ISO 8601 date string) */
-  resolvedDate?: string
+  // ============================================================================
+  // SETTLEMENT FIELDS (required for SUBMITTED → SETTLED transition)
+  // ============================================================================
 
-  /** Claim type/category (can be null to clear) */
-  type?: string | null
+  /** Gastos No Elegibles - amount denied by insurer */
+  amountDenied?: number | null
+
+  /** Gastos No Procesados - unprocessed amount */
+  amountUnprocessed?: number | null
+
+  /** Aplicación de Deducible - deductible applied */
+  deductibleApplied?: number | null
+
+  /** Copago - copay applied */
+  copayApplied?: number | null
+
+  /** Fecha de Liquidación - settlement date (ISO date string) */
+  settlementDate?: string
+
+  /** Número de Liquidación - settlement number from insurer */
+  settlementNumber?: string | null
+
+  /** Observaciones - settlement notes */
+  settlementNotes?: string | null
+
+  /** Liquidado - approved amount (calculated or entered) */
+  amountApproved?: number | null
+
+  // ============================================================================
+  // REPROCESS FIELDS (required for PENDING_INFO → SUBMITTED transition)
+  // ============================================================================
+
+  /** Date when claim was reprocessed (ISO date string) */
+  reprocessDate?: string
+
+  /** Description of why reprocessing was needed */
+  reprocessDescription?: string
+
+  // ============================================================================
+  // STATUS TRANSITION
+  // ============================================================================
 
   /**
    * New claim status (triggers lifecycle validation)
-   * Valid values: SUBMITTED, UNDER_REVIEW, APPROVED, REJECTED
+   * Valid values: DRAFT, PENDING_INFO, VALIDATION, SUBMITTED, RETURNED, SETTLED, CANCELLED
    * Transitions validated against blueprint rules
    */
   status?: ClaimLifecycleState
@@ -103,19 +128,5 @@ export interface ClaimUpdateRequest {
  *
  * Returns complete updated claim with all fields (same structure as detail view).
  * Client receives full claim state after update for consistency.
- *
- * @example
- * {
- *   "id": "abc123",
- *   "claimNumber": "RECL_XXXXXXX",
- *   "status": "UNDER_REVIEW",
- *   "description": "Updated description",
- *   "amount": 150.50,
- *   "approvedAmount": 100.00,
- *   "clientName": "TechCorp S.A.",
- *   "affiliateFirstName": "Juan",
- *   "affiliateLastName": "Pérez",
- *   ...all other ClaimDetailResponse fields
- * }
  */
 export type ClaimUpdateResponse = ClaimDetailResponse

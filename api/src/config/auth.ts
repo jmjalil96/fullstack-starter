@@ -1,19 +1,10 @@
 import { betterAuth } from 'better-auth'
 import { prismaAdapter } from 'better-auth/adapters/prisma'
-import nodemailer from 'nodemailer'
+
+import { emailTransporter } from '../lib/email.js'
 
 import { db } from './database.js'
 import { env } from './env.js'
-
-// Create email transporter for Inbucket (SMTP test server)
-const transporter = nodemailer.createTransport({
-  host: 'localhost',
-  port: 2500,
-  secure: false,
-  tls: {
-    rejectUnauthorized: false,
-  },
-})
 
 export const auth = betterAuth({
   database: prismaAdapter(db, {
@@ -27,15 +18,15 @@ export const auth = betterAuth({
       // Build client-side reset URL with token
       const clientResetUrl = `${env.CLIENT_URL}/reset-password?token=${token}`
 
-      await transporter.sendMail({
-        from: 'noreply@travelapp.com',
+      await emailTransporter.sendMail({
+        from: process.env.EMAIL_FROM || 'noreply@capstone360.com',
         to: user.email,
-        subject: 'Reset your password',
+        subject: 'Restablecer tu contraseña',
         html: `
-          <h2>Reset Your Password</h2>
-          <p>Click the link below to reset your password:</p>
+          <h2>Restablecer tu Contraseña</h2>
+          <p>Haz clic en el siguiente enlace para restablecer tu contraseña:</p>
           <a href="${clientResetUrl}">${clientResetUrl}</a>
-          <p>This link will expire in 1 hour.</p>
+          <p>Este enlace expirará en 1 hora.</p>
         `,
       })
     },
@@ -46,15 +37,15 @@ export const auth = betterAuth({
       // Build client-side verification URL with token
       const clientVerifyUrl = `${env.CLIENT_URL}/verify-email?token=${token}`
 
-      await transporter.sendMail({
-        from: 'noreply@travelapp.com',
+      await emailTransporter.sendMail({
+        from: process.env.EMAIL_FROM || 'noreply@capstone360.com',
         to: user.email,
-        subject: 'Verify your email address',
+        subject: 'Verifica tu correo electrónico',
         html: `
-          <h2>Verify Your Email</h2>
-          <p>Welcome! Please verify your email address to complete your registration:</p>
+          <h2>Verifica tu Correo</h2>
+          <p>¡Bienvenido! Por favor verifica tu correo electrónico para completar tu registro:</p>
           <a href="${clientVerifyUrl}">${clientVerifyUrl}</a>
-          <p>This link will expire in 24 hours.</p>
+          <p>Este enlace expirará en 24 horas.</p>
         `,
       })
     },

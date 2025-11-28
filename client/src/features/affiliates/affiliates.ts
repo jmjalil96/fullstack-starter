@@ -138,52 +138,6 @@ export interface AffiliateDetailResponse {
 }
 
 /**
- * Create affiliate request body
- * Mirrors: api/src/features/affiliates/new/createAffiliate.dto.ts
- * Sent to POST /api/affiliates
- */
-export interface CreateAffiliateRequest {
-  clientId: string
-  firstName: string
-  lastName: string
-  email?: string
-  phone?: string
-  dateOfBirth?: string
-  documentType?: string
-  documentNumber?: string
-  affiliateType: AffiliateType
-  coverageType?: CoverageType
-  primaryAffiliateId?: string
-}
-
-/**
- * Create affiliate response
- * Mirrors: api/src/features/affiliates/new/createAffiliate.dto.ts
- * Returned from POST /api/affiliates
- */
-export interface CreateAffiliateResponse {
-  id: string
-  firstName: string
-  lastName: string
-  email: string | null
-  phone: string | null
-  dateOfBirth: string | null
-  documentType: string | null
-  documentNumber: string | null
-  affiliateType: AffiliateType
-  coverageType: CoverageType | null
-  clientId: string
-  clientName: string
-  primaryAffiliateId: string | null
-  primaryAffiliateFirstName: string | null
-  primaryAffiliateLastName: string | null
-  hasUserAccount: boolean
-  isActive: boolean
-  createdAt: string
-  updatedAt: string
-}
-
-/**
  * Update affiliate request body
  * Mirrors: api/src/features/affiliates/edit/affiliateEdit.dto.ts
  * Sent to PUT /api/affiliates/:id

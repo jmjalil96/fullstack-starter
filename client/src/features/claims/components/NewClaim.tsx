@@ -1,11 +1,19 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { FormProvider, useForm } from 'react-hook-form'
+import { useEffect, useState } from 'react'
+import { Controller, FormProvider, useForm, useFormContext } from 'react-hook-form'
 
 import { ApiRequestError } from '../../../config/api'
-import { DetailSection } from '../../../shared/components/ui/data-display/DetailSection'
+import { SummaryCard } from '../../../shared/components/ui/data-display/SummaryCard'
+import { FileDropzone } from '../../../shared/components/ui/files/FileDropzone'
+import { FileListItem } from '../../../shared/components/ui/files/FileListItem'
 import { Button } from '../../../shared/components/ui/forms/Button'
+import { SearchableSelect } from '../../../shared/components/ui/forms/SearchableSelect'
+import { Textarea } from '../../../shared/components/ui/forms/Textarea'
+import { FormSection } from '../../../shared/components/ui/layout/FormSection'
 import { PageHeader } from '../../../shared/components/ui/layout/PageHeader'
 import { useToast } from '../../../shared/hooks/useToast'
+import { CLAIM_FILE_CATEGORIES, type PendingFile } from '../../files/files'
+import { requestPendingUploadUrl, uploadToR2 } from '../../files/filesApi'
 import {
   useAvailableClaimAffiliates,
   useAvailableClaimClients,
@@ -14,11 +22,75 @@ import {
 import { useCreateClaim } from '../hooks/useClaimMutations'
 import { claimFormSchema, type ClaimFormData } from '../schemas/createClaimSchema'
 
-import { CreateClaimForm } from './CreateClaimForm'
+// --- QUICK TAGS (domain-specific) ---
+
+const QUICK_TAGS = [
+  {
+    label: 'Consulta Médica',
+    text: 'Consulta médica realizada.\nDiagnóstico: ',
+  },
+  {
+    label: 'Medicamentos',
+    text: 'Compra de medicamentos según receta adjunta.\nFarmacia: ',
+  },
+  {
+    label: 'Estudios',
+    text: 'Estudios de laboratorio realizados.\nResultados: ',
+  },
+]
+
+function DescriptionField() {
+  const { control, setValue, getValues } = useFormContext<ClaimFormData>()
+
+  const insertTag = (text: string) => {
+    const current = getValues('description') || ''
+    setValue('description', current + (current ? '\n\n' : '') + text, {
+      shouldDirty: true,
+    })
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
+        {QUICK_TAGS.map((tag) => (
+          <button
+            key={tag.label}
+            type="button"
+            onClick={() => insertTag(tag.text)}
+            className="flex-shrink-0 px-3 py-1 bg-[var(--color-gold-50)] text-[var(--color-navy)] text-xs font-medium rounded-full hover:bg-[var(--color-gold-100)] transition-colors border border-[var(--color-gold-200)]"
+          >
+            + {tag.label}
+          </button>
+        ))}
+      </div>
+      <Controller
+        name="description"
+        control={control}
+        render={({ field, fieldState }) => (
+          <Textarea
+            {...field}
+            label="Detalles del Reclamo"
+            required
+            rows={5}
+            placeholder="Describa los detalles del servicio médico..."
+            error={fieldState.error}
+            className="resize-none"
+          />
+        )}
+      />
+    </div>
+  )
+}
+
+// --- MAIN PAGE COMPONENT ---
 
 export function NewClaim() {
   const createMutation = useCreateClaim()
   const toast = useToast()
+
+  // --- STATE ---
+  const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([])
+  const [uploading, setUploading] = useState(false)
 
   const form = useForm<ClaimFormData>({
     resolver: zodResolver(claimFormSchema),
@@ -31,12 +103,12 @@ export function NewClaim() {
     },
   })
 
-  const { handleSubmit, setError, setFocus, reset, watch } = form
-
+  const { handleSubmit, setError, setFocus, reset, watch, setValue, control } = form
   const clientId = watch('clientId')
   const affiliateId = watch('affiliateId')
+  const patientId = watch('patientId')
 
-  // Fetch available options using TanStack Query
+  // --- DATA FETCHING ---
   const { data: clientList = [] } = useAvailableClaimClients()
   const { data: affiliateList = [], isLoading: loadingAffiliates } =
     useAvailableClaimAffiliates(clientId || undefined, true)
@@ -45,7 +117,7 @@ export function NewClaim() {
     true
   )
 
-  // Map to select options
+  // --- OPTIONS MAPPING ---
   const clientOptions = clientList.map((c) => ({ value: c.id, label: c.name }))
   const affiliateOptions = affiliateList.map((a) => ({
     value: a.id,
@@ -53,27 +125,101 @@ export function NewClaim() {
   }))
   const patientOptions = patientList.map((p) => ({
     value: p.id,
-    label:
-      p.relationship === 'self'
-        ? `${p.firstName} ${p.lastName} (Titular)`
-        : `${p.firstName} ${p.lastName} (Dependiente)`,
+    label: `${p.firstName} ${p.lastName} (${p.relationship === 'self' ? 'Titular' : 'Dep.'})`,
   }))
+
+  // --- EFFECTS ---
+
+  // Auto-select single client (for AFFILIATE users)
+  useEffect(() => {
+    if (clientList.length === 1 && !clientId) {
+      setValue('clientId', clientList[0].id)
+    }
+  }, [clientList, clientId, setValue])
+
+  // Auto-select single affiliate (for AFFILIATE users)
+  useEffect(() => {
+    if (affiliateList.length === 1 && clientId && !affiliateId) {
+      setValue('affiliateId', affiliateList[0].id)
+    }
+  }, [affiliateList, clientId, affiliateId, setValue])
+
+  // Cascading reset: When client changes → clear affiliate + patient
+  useEffect(() => {
+    setValue('affiliateId', '', { shouldValidate: false })
+    setValue('patientId', '', { shouldValidate: false })
+  }, [clientId, setValue])
+
+  // Cascading reset: When affiliate changes → clear patient
+  useEffect(() => {
+    setValue('patientId', '', { shouldValidate: false })
+  }, [affiliateId, setValue])
+
+  // --- HANDLERS ---
+
+  const handleFilesSelected = async (files: File[]) => {
+    setUploading(true)
+    try {
+      const newUploads: PendingFile[] = []
+      for (const file of files) {
+        const { uploadUrl, storageKey } = await requestPendingUploadUrl({
+          fileName: file.name,
+          mimeType: file.type,
+          fileSize: file.size,
+          intendedEntityType: 'CLAIM',
+        })
+
+        await uploadToR2(uploadUrl, file)
+
+        newUploads.push({
+          storageKey,
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          category: 'OTHER',
+        })
+      }
+      setPendingFiles((prev) => [...prev, ...newUploads])
+      toast.success(`${newUploads.length} archivo(s) subido(s)`)
+    } catch (error) {
+      console.error(error)
+      toast.error('Error al subir archivos')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const handleUpdateCategory = (storageKey: string, newCategory: string) => {
+    setPendingFiles((prev) =>
+      prev.map((f) => (f.storageKey === storageKey ? { ...f, category: newCategory } : f))
+    )
+  }
+
+  const handleRemoveFile = (storageKey: string) => {
+    setPendingFiles((prev) => prev.filter((f) => f.storageKey !== storageKey))
+  }
 
   const onSubmit = handleSubmit(async (data) => {
     try {
       await createMutation.mutateAsync({
-        clientId: data.clientId,
-        affiliateId: data.affiliateId,
-        patientId: data.patientId,
-        description: data.description,
+        ...data,
+        pendingFiles: pendingFiles.map((f) => ({
+          storageKey: f.storageKey,
+          originalName: f.name,
+          fileSize: f.size,
+          mimeType: f.type,
+          category: f.category,
+        })),
       })
       toast.success('Reclamo creado exitosamente')
       reset()
-      // Optionally navigate to detail page once createClaim returns the created claim
-      // navigate(`/v2/reclamos/${created.id}`)
+      setPendingFiles([])
     } catch (error) {
       if (error instanceof ApiRequestError && error.metadata?.issues) {
-        const issues = error.metadata.issues as Array<{ path: string | string[]; message: string }>
+        const issues = error.metadata.issues as Array<{
+          path: string | string[]
+          message: string
+        }>
         issues.forEach((issue) => {
           const fieldPath = Array.isArray(issue.path) ? issue.path.join('.') : issue.path
           setError(fieldPath as keyof ClaimFormData, {
@@ -89,111 +235,215 @@ export function NewClaim() {
         }
         return
       }
-      const message =
-        error instanceof ApiRequestError ? error.message : 'Error al crear reclamo'
-      toast.error(message)
+      toast.error('Error al crear el reclamo')
     }
   })
 
+  // --- SUMMARY ITEMS ---
+  const summaryItems = [
+    {
+      label: 'Cliente',
+      value: clientList.find((c) => c.id === clientId)?.name || '-',
+    },
+    {
+      label: 'Paciente',
+      value: patientList.find((p) => p.id === patientId)?.firstName || '-',
+    },
+    {
+      label: 'Archivos',
+      value: pendingFiles.length,
+    },
+  ]
+
   return (
-    <div className="min-h-screen bg-gray-50/50 p-4 md:p-6">
-      {/* Header */}
+    <div className="space-y-8">
       <PageHeader
-        title="Nuevo Reclamo"
-        subtitle="Completa la información del reclamo. Podrás adjuntar documentos y asignar una póliza más adelante."
-        breadcrumbs={[
-          { label: 'Inicio', to: '/dashboard' },
-          { label: 'Reclamos', to: '/reclamos' },
-          { label: 'Nuevo Reclamo' },
-        ]}
-      />
+          title="Nuevo Reclamo"
+          subtitle="Complete la información a continuación para iniciar un proceso de reembolso o autorización."
+          breadcrumbs={[
+            { label: 'Inicio', to: '/dashboard' },
+            { label: 'Reclamos', to: '/reclamos' },
+            { label: 'Nuevo' },
+          ]}
+        />
 
-      {/* Main Content */}
-      <FormProvider {...form}>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-          {/* Left: Form (2/3 width) */}
-          <div className="lg:col-span-2 space-y-6">
-            <CreateClaimForm
-              id="create-claim-form"
-              onSubmit={onSubmit}
-              clientOptions={clientOptions}
-              affiliateOptions={affiliateOptions}
-              patientOptions={patientOptions}
-              loadingAffiliates={loadingAffiliates}
-              loadingPatients={loadingPatients}
-            />
+        <FormProvider {...form}>
+          <form onSubmit={onSubmit} className="space-y-8">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+              {/* LEFT COLUMN: Main Inputs (8/12) */}
+              <div className="lg:col-span-8 space-y-6">
+                {/* SECTION 1: PARTIES */}
+                <FormSection title="1. Participantes" badge="Requerido">
+                  <div className="grid gap-6">
+                    <Controller
+                      name="clientId"
+                      control={control}
+                      render={({ field, fieldState }) => (
+                        <SearchableSelect
+                          label="Cliente (Póliza)"
+                          placeholder="Seleccionar empresa..."
+                          options={clientOptions}
+                          value={field.value}
+                          onChange={field.onChange}
+                          error={fieldState.error}
+                          required
+                        />
+                      )}
+                    />
 
-            {/* Submit Button */}
-            <div className="flex justify-end gap-3 pt-4">
-              <Button
-                type="submit"
-                form="create-claim-form"
-                isLoading={createMutation.isPending}
-                disabled={createMutation.isPending}
-              >
-                Crear Reclamo
-              </Button>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative">
+                      <div
+                        className="hidden md:block absolute top-[58%] left-1/2 -translate-x-1/2 -translate-y-1/2 text-gray-300"
+                        aria-hidden="true"
+                      >
+                        &rarr;
+                      </div>
+
+                      <Controller
+                        name="affiliateId"
+                        control={control}
+                        render={({ field, fieldState }) => (
+                          <div className={!clientId ? 'opacity-50' : ''}>
+                            <SearchableSelect
+                              label="Afiliado Titular"
+                              placeholder={
+                                loadingAffiliates ? 'Cargando...' : 'Seleccionar titular...'
+                              }
+                              options={affiliateOptions}
+                              value={field.value}
+                              onChange={field.onChange}
+                              disabled={!clientId}
+                              isLoading={loadingAffiliates}
+                              error={fieldState.error}
+                              required
+                            />
+                          </div>
+                        )}
+                      />
+
+                      <Controller
+                        name="patientId"
+                        control={control}
+                        render={({ field, fieldState }) => (
+                          <div className={!affiliateId ? 'opacity-50' : ''}>
+                            <SearchableSelect
+                              label="Paciente"
+                              placeholder={
+                                loadingPatients ? 'Cargando...' : 'Seleccionar paciente...'
+                              }
+                              options={patientOptions}
+                              value={field.value}
+                              onChange={field.onChange}
+                              disabled={!affiliateId}
+                              isLoading={loadingPatients}
+                              error={fieldState.error}
+                              required
+                            />
+                          </div>
+                        )}
+                      />
+                    </div>
+                  </div>
+                </FormSection>
+
+                {/* SECTION 2: DETAILS */}
+                <FormSection title="2. Detalles del Caso">
+                  <DescriptionField />
+                </FormSection>
+
+                {/* SECTION 3: FILES */}
+                <FormSection title="3. Documentación" badge={`${pendingFiles.length} Archivos`}>
+                  <div className="space-y-6">
+                    <FileDropzone onFilesSelected={handleFilesSelected} loading={uploading} />
+
+                    {uploading && (
+                      <div className="text-center text-sm text-blue-600 animate-pulse">
+                        Subiendo archivos...
+                      </div>
+                    )}
+
+                    {pendingFiles.length > 0 && (
+                      <div className="space-y-3 bg-gray-50 rounded-xl p-4">
+                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
+                          Archivos Adjuntos
+                        </p>
+                        {pendingFiles.map((file) => (
+                          <FileListItem
+                            key={file.storageKey}
+                            name={file.name}
+                            size={file.size}
+                            mimeType={file.type}
+                            onRemove={() => handleRemoveFile(file.storageKey)}
+                          >
+                            <select
+                              value={file.category || 'OTHER'}
+                              onChange={(e) => handleUpdateCategory(file.storageKey, e.target.value)}
+                              className="block w-full text-xs py-1.5 pl-2 pr-8 rounded-md border-gray-200 bg-gray-50 focus:border-blue-500 focus:ring-blue-500 cursor-pointer"
+                            >
+                              {CLAIM_FILE_CATEGORIES.map((cat) => (
+                                <option key={cat.value} value={cat.value}>
+                                  {cat.label}
+                                </option>
+                              ))}
+                            </select>
+                          </FileListItem>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </FormSection>
+              </div>
+
+              {/* RIGHT COLUMN: Action & Tips (4/12) */}
+              <div className="lg:col-span-4 space-y-6">
+                <SummaryCard
+                  title="Resumen"
+                  items={summaryItems}
+                  sticky
+                  action={
+                    <Button
+                      type="submit"
+                      variant="primary"
+                      className="w-full justify-center py-3 text-base"
+                      isLoading={createMutation.isPending}
+                      disabled={createMutation.isPending}
+                    >
+                      Crear Reclamo
+                    </Button>
+                  }
+                  footer="Al crear el reclamo, se notificará automáticamente al equipo de soporte."
+                />
+
+                {/* Help Card */}
+                <div className="bg-[var(--color-gold-50)] rounded-2xl p-6 border border-[var(--color-gold-200)]">
+                  <h4 className="font-medium text-[var(--color-navy)] mb-2 flex items-center gap-2">
+                    <svg
+                      className="w-4 h-4 text-[var(--color-gold-500)]"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    Ayuda Rápida
+                  </h4>
+                  <ul className="text-sm text-[var(--color-navy-600)] space-y-2 pl-6 list-disc marker:text-[var(--color-gold-400)]">
+                    <li>
+                      Seleccione primero el <strong>Cliente</strong> para filtrar afiliados.
+                    </li>
+                    <li>Puede arrastrar múltiples archivos a la zona de carga.</li>
+                    <li>Utilice las etiquetas rápidas para completar la descripción.</li>
+                  </ul>
+                </div>
+              </div>
             </div>
-          </div>
-
-          {/* Right: Sidebar (1/3 width) */}
-          <div className="space-y-6">
-            {/* Tips Card */}
-            <DetailSection title="Consejos">
-              <div className="text-sm text-gray-700 space-y-3">
-                <div className="flex gap-2">
-                  <span className="text-blue-500">•</span>
-                  <p>
-                    <strong>Cliente:</strong> Selecciona la empresa titular del seguro.
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <span className="text-blue-500">•</span>
-                  <p>
-                    <strong>Afiliado Titular:</strong> El dueño de la póliza (puede ser el paciente o
-                    su responsable).
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <span className="text-blue-500">•</span>
-                  <p>
-                    <strong>Paciente:</strong> Quien recibió el servicio médico (puede ser el titular
-                    o un dependiente).
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <span className="text-blue-500">•</span>
-                  <p>
-                    <strong>Descripción:</strong> Incluye diagnóstico, tratamiento realizado y
-                    servicios recibidos.
-                  </p>
-                </div>
-              </div>
-            </DetailSection>
-
-            {/* Document Upload Placeholder */}
-            <DetailSection title="Documentos">
-              <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl p-6 text-center">
-                <svg
-                  className="mx-auto h-10 w-10 text-gray-400 mb-3"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                  />
-                </svg>
-                <p className="text-sm text-gray-500 font-medium mb-1">Adjuntar Documentos</p>
-                <p className="text-xs text-gray-400">Próximamente disponible</p>
-              </div>
-            </DetailSection>
-          </div>
-        </div>
-      </FormProvider>
+          </form>
+        </FormProvider>
     </div>
   )
 }

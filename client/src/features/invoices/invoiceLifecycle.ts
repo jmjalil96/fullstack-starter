@@ -24,6 +24,7 @@ export interface LifecycleState {
   editableFields: readonly string[]
   transitions: Transition[]
   requirements: readonly string[]
+  transitionRequirements?: Partial<Record<InvoiceStatus, readonly string[]>>
 }
 
 export const INVOICE_LIFECYCLE: Record<InvoiceStatus, LifecycleState> = {
@@ -32,7 +33,6 @@ export const INVOICE_LIFECYCLE: Record<InvoiceStatus, LifecycleState> = {
     color: 'blue',
     editableFields: [
       'invoiceNumber',
-      'insurerInvoiceNumber',
       'clientId',
       'insurerId',
       'billingPeriod',
@@ -69,6 +69,11 @@ export const INVOICE_LIFECYCLE: Record<InvoiceStatus, LifecycleState> = {
       },
     ],
     requirements: ['billingPeriod', 'taxAmount', 'actualAffiliateCount', 'dueDate'],
+    transitionRequirements: {
+      VALIDATED: ['billingPeriod', 'taxAmount', 'actualAffiliateCount', 'dueDate'],
+      DISCREPANCY: ['billingPeriod', 'taxAmount', 'actualAffiliateCount', 'dueDate'],
+      CANCELLED: [],
+    },
   },
 
   VALIDATED: {
@@ -92,6 +97,10 @@ export const INVOICE_LIFECYCLE: Record<InvoiceStatus, LifecycleState> = {
       },
     ],
     requirements: [],
+    transitionRequirements: {
+      DISCREPANCY: [],
+      CANCELLED: [],
+    },
   },
 
   DISCREPANCY: {
@@ -124,6 +133,10 @@ export const INVOICE_LIFECYCLE: Record<InvoiceStatus, LifecycleState> = {
       },
     ],
     requirements: ['discrepancyNotes'],
+    transitionRequirements: {
+      VALIDATED: ['discrepancyNotes'],
+      CANCELLED: [],
+    },
   },
 
   CANCELLED: {
@@ -132,12 +145,12 @@ export const INVOICE_LIFECYCLE: Record<InvoiceStatus, LifecycleState> = {
     editableFields: ['discrepancyNotes'],
     transitions: [],
     requirements: [],
+    transitionRequirements: {},
   },
 }
 
 export const FIELD_LABELS: Record<string, string> = {
   invoiceNumber: 'Número de Factura',
-  insurerInvoiceNumber: 'Número Aseguradora',
   clientId: 'Cliente',
   insurerId: 'Aseguradora',
   billingPeriod: 'Período de Facturación',

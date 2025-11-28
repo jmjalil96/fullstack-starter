@@ -197,25 +197,23 @@ export type UpdatePolicyResponse = PolicyDetailResponse
 /**
  * Policy affiliate item in list under a policy
  * Mirrors: api/src/features/policies/affiliates/policyAffiliates.dto.ts
- * Similar to AffiliateListItemResponse plus addedAt
  */
 export interface PolicyAffiliateResponse {
   // Affiliate identification
   id: string
   firstName: string
   lastName: string
-  email: string | null
-  documentNumber: string | null
 
   // Type & coverage
   affiliateType: AffiliateType
   coverageType: CoverageType | null
 
-  // Status
-  isActive: boolean
-
-  // When this affiliate was added to this policy (ISO string)
+  // Policy membership dates (ISO strings)
   addedAt: string
+  removedAt: string | null
+
+  // Status (from PolicyAffiliate junction, not Affiliate)
+  isActive: boolean
 }
 
 /**
@@ -224,4 +222,93 @@ export interface PolicyAffiliateResponse {
 export interface GetPolicyAffiliatesResponse {
   affiliates: PolicyAffiliateResponse[]
   pagination: PaginationMetadata
+}
+
+/**
+ * Add affiliate to policy request body
+ * Mirrors: api/src/features/policies/affiliates/addAffiliate.dto.ts
+ * Sent to POST /api/policies/:policyId/affiliates
+ */
+export interface AddAffiliateToPolicyRequest {
+  clientId: string
+  firstName: string
+  lastName: string
+  affiliateType: AffiliateType
+  email?: string
+  phone?: string
+  dateOfBirth?: string
+  documentType?: string
+  documentNumber?: string
+  coverageType?: CoverageType
+  primaryAffiliateId?: string
+  addedAt?: string
+}
+
+/**
+ * Add affiliate to policy response
+ * Mirrors: api/src/features/policies/affiliates/addAffiliate.dto.ts
+ * Returned from POST /api/policies/:policyId/affiliates
+ */
+export interface AddAffiliateToPolicyResponse {
+  // Affiliate fields
+  id: string
+  firstName: string
+  lastName: string
+  email: string | null
+  phone: string | null
+  dateOfBirth: string | null
+  documentType: string | null
+  documentNumber: string | null
+  affiliateType: AffiliateType
+  coverageType: CoverageType | null
+  clientId: string
+  clientName: string
+  primaryAffiliateId: string | null
+  primaryAffiliateFirstName: string | null
+  primaryAffiliateLastName: string | null
+  hasUserAccount: boolean
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+
+  // Policy relationship fields
+  policyId: string
+  policyNumber: string
+  addedAt: string
+  removedAt: string | null
+  relationshipIsActive: boolean
+}
+
+/**
+ * Remove affiliate from policy request body
+ * Mirrors: api/src/features/policies/affiliates/removeAffiliate.dto.ts
+ * Sent to PATCH /api/policies/:policyId/affiliates/:affiliateId
+ */
+export interface RemoveAffiliateFromPolicyRequest {
+  removedAt: string
+}
+
+/**
+ * Information about a removed affiliate
+ * Mirrors: api/src/features/policies/affiliates/removeAffiliate.dto.ts
+ */
+export interface RemovedAffiliateInfo {
+  affiliateId: string
+  affiliateFirstName: string
+  affiliateLastName: string
+  affiliateType: AffiliateType
+  addedAt: string
+  removedAt: string
+}
+
+/**
+ * Remove affiliate from policy response
+ * Mirrors: api/src/features/policies/affiliates/removeAffiliate.dto.ts
+ * Returned from PATCH /api/policies/:policyId/affiliates/:affiliateId
+ */
+export interface RemoveAffiliateFromPolicyResponse {
+  policyId: string
+  policyNumber: string
+  removedAffiliate: RemovedAffiliateInfo
+  cascadedDependents: RemovedAffiliateInfo[]
 }

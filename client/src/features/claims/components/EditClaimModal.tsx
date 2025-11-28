@@ -11,7 +11,7 @@ import { Modal } from '../../../shared/components/ui/feedback/Modal'
 import { Button } from '../../../shared/components/ui/forms/Button'
 import { useToast } from '../../../shared/hooks/useToast'
 import { formatFieldValue } from '../../../shared/utils/formatters'
-import { FIELD_LABELS } from '../claimLifecycle'
+import { CARE_TYPE_LABELS, FIELD_LABELS } from '../claimLifecycle'
 import { mapClaimEditFormToUpdateRequest } from '../claimMappers'
 import type { AvailablePolicyResponse, ClaimDetailResponse, ClaimUpdateRequest } from '../claims'
 import { useAvailableClaimPolicies } from '../hooks/useClaimLookups'
@@ -22,22 +22,36 @@ import { claimUpdateSchema, type ClaimUpdateFormData } from '../schemas/editClai
 import { ClaimForm } from './ClaimForm'
 
 /**
+ * Helper to convert number to string for form inputs
+ */
+const numToStr = (val: number | null | undefined): string =>
+  val !== null && val !== undefined ? String(val) : ''
+
+/**
  * Convert ClaimDetailResponse to form default values
  * Handles number → string conversion for currency inputs
  */
 function getClaimFormValues(claim: ClaimDetailResponse | undefined): ClaimUpdateFormData {
   return {
+    // Basic fields
     description: claim?.description || '',
-    type: claim?.type || '',
+    careType: claim?.careType || '',
+    diagnosisCode: claim?.diagnosisCode || '',
+    diagnosisDescription: claim?.diagnosisDescription || '',
     policyId: claim?.policyId || '',
     incidentDate: claim?.incidentDate || '',
     submittedDate: claim?.submittedDate || '',
-    resolvedDate: claim?.resolvedDate || '',
-    amount: claim?.amount !== null && claim?.amount !== undefined ? String(claim.amount) : '',
-    approvedAmount:
-      claim?.approvedAmount !== null && claim?.approvedAmount !== undefined
-        ? String(claim.approvedAmount)
-        : '',
+    amountSubmitted: numToStr(claim?.amountSubmitted),
+    businessDays: numToStr(claim?.businessDays),
+    // Settlement fields
+    settlementDate: claim?.settlementDate || '',
+    settlementNumber: claim?.settlementNumber || '',
+    amountApproved: numToStr(claim?.amountApproved),
+    amountDenied: numToStr(claim?.amountDenied),
+    amountUnprocessed: numToStr(claim?.amountUnprocessed),
+    deductibleApplied: numToStr(claim?.deductibleApplied),
+    copayApplied: numToStr(claim?.copayApplied),
+    settlementNotes: claim?.settlementNotes || '',
   }
 }
 
@@ -122,18 +136,34 @@ export function EditClaimModal({ isOpen, onClose, claimId }: EditClaimModalProps
       return policy?.policyNumber
     }
 
+    // CareType lookup helper
+    const getCareTypeLabel = (value: string | null | undefined) => {
+      if (!value) return null
+      return CARE_TYPE_LABELS[value as keyof typeof CARE_TYPE_LABELS] || value
+    }
+
     // Check each dirty field for changes
     Object.keys(dirtyFields).forEach((key) => {
       const oldValue = claim[key as keyof typeof claim]
       const newValue = formData[key as keyof typeof formData]
 
       if (oldValue !== newValue) {
-        diffs.push({
-          field: key,
-          label: FIELD_LABELS[key as keyof typeof FIELD_LABELS] || key,
-          oldValue: formatFieldValue(key, oldValue, getPolicyLabel),
-          newValue: formatFieldValue(key, newValue, getPolicyLabel),
-        })
+        // Special formatting for careType
+        if (key === 'careType') {
+          diffs.push({
+            field: key,
+            label: FIELD_LABELS[key as keyof typeof FIELD_LABELS] || key,
+            oldValue: getCareTypeLabel(oldValue as string | null) ?? '—',
+            newValue: getCareTypeLabel(newValue as string | null | undefined) ?? '—',
+          })
+        } else {
+          diffs.push({
+            field: key,
+            label: FIELD_LABELS[key as keyof typeof FIELD_LABELS] || key,
+            oldValue: formatFieldValue(key, oldValue, getPolicyLabel),
+            newValue: formatFieldValue(key, newValue, getPolicyLabel),
+          })
+        }
       }
     })
 

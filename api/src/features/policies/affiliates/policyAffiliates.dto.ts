@@ -30,40 +30,24 @@ export interface GetPolicyAffiliatesQueryParams {
 
 /**
  * Single affiliate covered under a policy
- * Same structure as AffiliateListItemResponse plus addedAt from PolicyAffiliate junction
+ * Simplified response for policy affiliates list view
  */
 export interface PolicyAffiliateResponse {
-  // Core identification
+  // Affiliate identification
   id: string
   firstName: string
   lastName: string
-  email: string | null
-  phone: string | null
-
-  // Personal info
-  dateOfBirth: string | null
-
-  // Document info
-  documentType: string | null
-  documentNumber: string | null
 
   // Type & coverage
   affiliateType: AffiliateType
   coverageType: CoverageType | null
 
-  // Family relationship (flat)
-  primaryAffiliateId: string | null
-  primaryAffiliateFirstName: string | null
-  primaryAffiliateLastName: string | null
-
-  // Policy membership
+  // Policy membership dates (ISO strings)
   addedAt: string
+  removedAt: string | null
 
-  // Status
+  // Status (from PolicyAffiliate junction, not Affiliate)
   isActive: boolean
-
-  // Dates (ISO strings)
-  createdAt: string
 }
 
 /**

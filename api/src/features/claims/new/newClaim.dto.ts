@@ -2,12 +2,30 @@
  * DTOs for new claim endpoint
  */
 
+import type { CareType, ClaimStatus } from '../views/viewClaims.dto.js'
+
+// Pending file input - files uploaded before claim exists
+export interface PendingFileInput {
+  storageKey: string
+  originalName: string
+  fileSize: number
+  mimeType: string
+  category?: string
+}
+
 // Request DTO - What client sends
 export interface CreateClaimRequest {
   clientId: string
   affiliateId: string
   patientId: string
-  description: string
+  description?: string
+  careType?: CareType
+  diagnosisCode?: string
+  diagnosisDescription?: string
+  amountSubmitted?: number
+  incidentDate?: string
+  submittedDate?: string
+  pendingFiles?: PendingFileInput[]
 }
 
 // Available clients response (for picklist)
@@ -32,44 +50,44 @@ export interface AvailablePatientResponse {
   relationship: 'self' | 'dependent'
 }
 
-// Response DTO - What API returns
+// Response DTO - What API returns (flat structure)
 export interface CreateClaimResponse {
   id: string
   claimNumber: string
-  status: string
+  status: ClaimStatus
   description: string | null
 
-  // Client info
+  // Diagnosis info
+  careType: CareType | null
+  diagnosisCode: string | null
+  diagnosisDescription: string | null
+
+  // Financial fields
+  amountSubmitted: number | null
+
+  // Dates
+  incidentDate: string | null
+  submittedDate: string | null
+
+  // Client info (flat)
   clientId: string
-  client: {
-    id: string
-    name: string
-  }
+  clientName: string
 
-  // Main affiliate (titular)
+  // Main affiliate - titular (flat)
   affiliateId: string
-  affiliate: {
-    id: string
-    firstName: string
-    lastName: string
-  }
+  affiliateFirstName: string
+  affiliateLastName: string
 
-  // Patient (who received service)
+  // Patient - who received service (flat)
   patientId: string
-  patient: {
-    id: string
-    firstName: string
-    lastName: string
-  }
+  patientFirstName: string
+  patientLastName: string
 
-  // Fields assigned later by employee
+  // Fields assigned later
   policyId: string | null
-  amount: number | null
-  approvedAmount: number | null
 
   // Metadata
   createdById: string
-  submittedDate: string | null // ISO date string
-  createdAt: string            // ISO date string
-  updatedAt: string            // ISO date string
+  createdAt: string
+  updatedAt: string
 }

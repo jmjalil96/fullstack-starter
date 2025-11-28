@@ -1,10 +1,11 @@
 import type { FormEventHandler } from 'react'
-import { Controller, useFormContext } from 'react-hook-form'
+import { Controller, useFormContext, useWatch } from 'react-hook-form'
 
 import { DataGrid, DetailSection } from '../../../shared/components/ui/data-display/DetailSection'
 import { CurrencyInput } from '../../../shared/components/ui/forms/CurrencyInput'
 import { DateInput } from '../../../shared/components/ui/forms/DateInput'
 import { Input } from '../../../shared/components/ui/forms/Input'
+import { MultiSelectSearchable } from '../../../shared/components/ui/forms/MultiSelectSearchable'
 import { SearchableSelect } from '../../../shared/components/ui/forms/SearchableSelect'
 import { Textarea } from '../../../shared/components/ui/forms/Textarea'
 
@@ -14,6 +15,8 @@ interface InvoiceFormProps {
   mode?: 'create' | 'edit'
   clientOptions?: Array<{ value: string; label: string }>
   insurerOptions?: Array<{ value: string; label: string }>
+  policyOptions?: Array<{ value: string; label: string }>
+  loadingPolicies?: boolean
 }
 
 export function InvoiceForm({
@@ -22,42 +25,33 @@ export function InvoiceForm({
   mode = 'edit',
   clientOptions = [],
   insurerOptions = [],
+  policyOptions = [],
+  loadingPolicies = false,
 }: InvoiceFormProps) {
   const { control } = useFormContext()
+
+  // Watch client and insurer for conditional policy selection
+  const clientId = useWatch({ control, name: 'clientId' })
+  const insurerId = useWatch({ control, name: 'insurerId' })
 
   return (
     <form id={id} onSubmit={onSubmit} className="space-y-6">
       {/* Section 1: Identificación */}
       <DetailSection title="Identificación">
         <div className="space-y-6">
-          <DataGrid columns={2}>
-            <Controller
-              name="invoiceNumber"
-              control={control}
-              render={({ field, fieldState }) => (
-                <Input
-                  label="Número de Factura"
-                  variant="light"
-                  error={fieldState.error}
-                  {...field}
-                  value={field.value || ''}
-                />
-              )}
-            />
-            <Controller
-              name="insurerInvoiceNumber"
-              control={control}
-              render={({ field, fieldState }) => (
-                <Input
-                  label="Nº Factura Aseguradora"
-                  variant="light"
-                  error={fieldState.error}
-                  {...field}
-                  value={field.value || ''}
-                />
-              )}
-            />
-          </DataGrid>
+          <Controller
+            name="invoiceNumber"
+            control={control}
+            render={({ field, fieldState }) => (
+              <Input
+                label="Número de Factura"
+                variant="light"
+                error={fieldState.error}
+                {...field}
+                value={field.value || ''}
+              />
+            )}
+          />
           <DataGrid columns={2}>
             <Controller
               name="clientId"
@@ -88,6 +82,39 @@ export function InvoiceForm({
               )}
             />
           </DataGrid>
+
+          {/* Policy selection - only show in create mode */}
+          {mode === 'create' && (
+            <div>
+              <Controller
+                name="policyIds"
+                control={control}
+                render={({ field, fieldState }) => (
+                  <MultiSelectSearchable
+                    label="Pólizas Asociadas"
+                    options={policyOptions}
+                    value={field.value || []}
+                    onChange={field.onChange}
+                    placeholder={
+                      !clientId || !insurerId
+                        ? 'Selecciona cliente y aseguradora primero'
+                        : 'Seleccionar pólizas...'
+                    }
+                    disabled={!clientId || !insurerId}
+                    isLoading={loadingPolicies}
+                    error={fieldState.error}
+                    variant="light"
+                    emptyText="No se encontraron pólizas disponibles"
+                  />
+                )}
+              />
+              {(!clientId || !insurerId) && (
+                <p className="text-xs text-gray-500 mt-1 ml-1">
+                  Selecciona un cliente y una aseguradora para ver las pólizas disponibles
+                </p>
+              )}
+            </div>
+          )}
         </div>
       </DetailSection>
 

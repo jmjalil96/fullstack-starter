@@ -8,11 +8,8 @@ import { InvoiceStatus, PaymentStatus } from '@prisma/client'
  * Request DTO - What client sends
  */
 export interface CreateInvoiceRequest {
-  /** Invoice number (our internal identifier) */
+  /** Invoice number (insurer's reference) */
   invoiceNumber: string
-
-  /** Insurer's invoice number (their reference) */
-  insurerInvoiceNumber: string
 
   /** Client ID (company being billed) */
   clientId: string
@@ -48,7 +45,6 @@ export interface CreateInvoiceRequest {
 export interface CreateInvoiceResponse {
   id: string
   invoiceNumber: string
-  insurerInvoiceNumber: string
   status: InvoiceStatus
   paymentStatus: PaymentStatus
 

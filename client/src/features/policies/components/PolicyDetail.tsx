@@ -10,6 +10,7 @@ import {
 } from '../../../shared/components/ui/data-display/DetailSection'
 import { StatusBadge } from '../../../shared/components/ui/data-display/StatusBadge'
 import { Button } from '../../../shared/components/ui/forms/Button'
+import { ButtonDropdown } from '../../../shared/components/ui/interactive/ButtonDropdown'
 import { DetailSidebar, type SidebarItem } from '../../../shared/components/ui/layout/DetailSidebar'
 import { PageHeader } from '../../../shared/components/ui/layout/PageHeader'
 import { WorkflowStepper } from '../../../shared/components/ui/layout/WorkflowStepper'
@@ -22,7 +23,9 @@ import {
 import type { PolicyAffiliateResponse, PolicyStatus } from '../policies'
 import { POLICY_LIFECYCLE } from '../policyLifecycle'
 
+import { AddAffiliateToPolicyModal } from './AddAffiliateToPolicyModal'
 import { EditPolicyModal } from './EditPolicyModal'
+import { RemoveAffiliateFromPolicyModal } from './RemoveAffiliateFromPolicyModal'
 import { StatusTransitionModal } from './StatusTransitionModal'
 
 const TAB_PAGE_LIMIT = 10
@@ -33,6 +36,9 @@ export function PolicyDetail() {
   const [activeTab, setActiveTab] = useState('general')
   const [affiliatePage, setAffiliatePage] = useState(1)
   const [editModalOpen, setEditModalOpen] = useState(false)
+  const [addAffiliateModalOpen, setAddAffiliateModalOpen] = useState(false)
+  const [removeAffiliateModalOpen, setRemoveAffiliateModalOpen] = useState(false)
+  const [selectedAffiliate, setSelectedAffiliate] = useState<PolicyAffiliateResponse | null>(null)
   const [transitionModalOpen, setTransitionModalOpen] = useState(false)
   const [transitionTarget, setTransitionTarget] = useState<PolicyStatus | null>(null)
 
@@ -177,24 +183,29 @@ export function PolicyDetail() {
       header: 'Nombre',
       render: (aff) => `${aff.firstName} ${aff.lastName}`,
     },
-    { key: 'documentNumber', header: 'Documento' },
     {
       key: 'affiliateType',
       header: 'Tipo',
-      render: (aff) => aff.affiliateType === 'OWNER' ? 'Titular' : 'Dependiente',
+      render: (aff) => (aff.affiliateType === 'OWNER' ? 'Titular' : 'Dependiente'),
     },
     {
       key: 'coverageType',
       header: 'Cobertura',
       render: (aff) => {
         if (!aff.coverageType) return '—'
-        const map: Record<string, string> = {
-          'T': 'T',
-          'TPLUS1': 'T+1',
-          'TPLUSF': 'T+F',
-        }
+        const map: Record<string, string> = { T: 'T', TPLUS1: 'T+1', TPLUSF: 'T+F' }
         return map[aff.coverageType] || aff.coverageType
       },
+    },
+    {
+      key: 'addedAt',
+      header: 'Fecha Alta',
+      render: (aff) => formatDate(aff.addedAt),
+    },
+    {
+      key: 'removedAt',
+      header: 'Fecha Baja',
+      render: (aff) => (aff.removedAt ? formatDate(aff.removedAt) : '—'),
     },
     {
       key: 'isActive',
@@ -204,6 +215,24 @@ export function PolicyDetail() {
           label={aff.isActive ? 'Activo' : 'Inactivo'}
           color={aff.isActive ? 'green' : 'gray'}
         />
+      ),
+    },
+    {
+      key: 'actions',
+      header: '',
+      render: (aff) => (
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={!aff.isActive}
+          onClick={(e: React.MouseEvent) => {
+            e.stopPropagation()
+            setSelectedAffiliate(aff)
+            setRemoveAffiliateModalOpen(true)
+          }}
+        >
+          Remover
+        </Button>
       ),
     },
   ]
@@ -219,7 +248,18 @@ export function PolicyDetail() {
             { label: 'Pólizas', to: '/polizas' },
             { label: policy.policyNumber },
           ]}
-          action={<Button onClick={() => setEditModalOpen(true)}>Editar Póliza</Button>}
+          action={
+            <ButtonDropdown
+              label="Editar Póliza"
+              mainAction={() => setEditModalOpen(true)}
+              items={[
+                {
+                  label: 'Agregar Afiliado',
+                  onClick: () => setAddAffiliateModalOpen(true),
+                },
+              ]}
+            />
+          }
         />
       }
       sidebar={<DetailSidebar items={sidebarItems} activeId={activeTab} onSelect={setActiveTab} />}
@@ -315,6 +355,30 @@ export function PolicyDetail() {
 
       {/* Edit Modal */}
       <EditPolicyModal isOpen={editModalOpen} onClose={() => setEditModalOpen(false)} policyId={policy.id} />
+
+      {/* Add Affiliate Modal */}
+      <AddAffiliateToPolicyModal
+        isOpen={addAffiliateModalOpen}
+        onClose={() => setAddAffiliateModalOpen(false)}
+        policyId={policy.id}
+        policyNumber={policy.policyNumber}
+        clientId={policy.clientId}
+        clientName={policy.clientName}
+      />
+
+      {/* Remove Affiliate Modal */}
+      {selectedAffiliate && (
+        <RemoveAffiliateFromPolicyModal
+          isOpen={removeAffiliateModalOpen}
+          onClose={() => {
+            setRemoveAffiliateModalOpen(false)
+            setSelectedAffiliate(null)
+          }}
+          affiliate={selectedAffiliate}
+          policyId={policy.id}
+          policyNumber={policy.policyNumber}
+        />
+      )}
 
       {/* Status Transition Modal */}
       {transitionTarget && (

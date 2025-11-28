@@ -8,6 +8,7 @@
 import {
   AffiliateType,
   type Affiliate,
+  CareType,
   ClaimStatus,
   CoverageType,
   InvoiceStatus,
@@ -413,13 +414,14 @@ function generatePolicyStatus(): PolicyStatus {
   return PolicyStatus.CANCELLED
 }
 
-// Claim status distribution: 30% SUBMITTED, 30% UNDER_REVIEW, 30% APPROVED, 10% REJECTED
+// Claim status distribution: 20% DRAFT, 20% VALIDATION, 25% SUBMITTED, 25% SETTLED, 10% CANCELLED
 function generateClaimStatus(): ClaimStatus {
   const rand = Math.random()
-  if (rand < 0.3) return ClaimStatus.SUBMITTED
-  if (rand < 0.6) return ClaimStatus.UNDER_REVIEW
-  if (rand < 0.9) return ClaimStatus.APPROVED
-  return ClaimStatus.REJECTED
+  if (rand < 0.2) return ClaimStatus.DRAFT
+  if (rand < 0.4) return ClaimStatus.VALIDATION
+  if (rand < 0.65) return ClaimStatus.SUBMITTED
+  if (rand < 0.9) return ClaimStatus.SETTLED
+  return ClaimStatus.CANCELLED
 }
 
 // Insurer distribution: 40% MAPFRE, 35% SURA, 25% ASISTENSI
@@ -467,8 +469,9 @@ async function main() {
   console.log('🗑️  Clearing existing data...')
 
   await prisma.policyAffiliate.deleteMany()
+  await prisma.claimReprocess.deleteMany()
+  await prisma.claimInvoice.deleteMany()
   await prisma.claim.deleteMany()
-  await prisma.claimAttachment.deleteMany()
   await prisma.affiliate.deleteMany()
   await prisma.invoicePolicy.deleteMany()
   await prisma.invoice.deleteMany()
@@ -902,10 +905,11 @@ async function main() {
   const claimsUser = brokerUsers[1]! // Carlos Ruiz - Claims employee
 
   const claimStatuses: ClaimStatus[] = [
-    ...Array(12).fill(ClaimStatus.SUBMITTED),
-    ...Array(12).fill(ClaimStatus.UNDER_REVIEW),
-    ...Array(12).fill(ClaimStatus.APPROVED),
-    ...Array(4).fill(ClaimStatus.REJECTED),
+    ...Array(8).fill(ClaimStatus.DRAFT),
+    ...Array(8).fill(ClaimStatus.VALIDATION),
+    ...Array(10).fill(ClaimStatus.SUBMITTED),
+    ...Array(10).fill(ClaimStatus.SETTLED),
+    ...Array(4).fill(ClaimStatus.CANCELLED),
   ]
 
   for (let i = 0; i < 40; i++) {
@@ -926,13 +930,25 @@ async function main() {
     const incidentDate = randomDateBetween(policy.startDate, new Date())
     const submittedDate = new Date(incidentDate.getTime() + randomInt(1, 7) * 24 * 60 * 60 * 1000)
 
-    let resolvedDate: Date | null = null
-    if (status === ClaimStatus.APPROVED || status === ClaimStatus.REJECTED) {
-      resolvedDate = new Date(submittedDate.getTime() + randomInt(3, 17) * 24 * 60 * 60 * 1000)
+    // Settlement date only for SETTLED claims
+    let settlementDate: Date | null = null
+    let businessDays: number | null = null
+    if (status === ClaimStatus.SETTLED) {
+      settlementDate = new Date(submittedDate.getTime() + randomInt(3, 17) * 24 * 60 * 60 * 1000)
+      businessDays = randomInt(3, 15)
     }
 
-    const amount = randomFloat(500, 5000)
-    const approvedAmount = status === ClaimStatus.APPROVED ? randomFloat(amount * 0.7, amount) : null
+    // Financial amounts
+    const amountSubmitted = randomFloat(500, 5000)
+    const amountApproved = status === ClaimStatus.SETTLED ? randomFloat(amountSubmitted * 0.7, amountSubmitted) : null
+    const amountDenied = status === ClaimStatus.SETTLED ? randomFloat(0, amountSubmitted * 0.1) : null
+    const deductibleApplied = status === ClaimStatus.SETTLED ? randomFloat(50, 200) : null
+    const copayApplied = status === ClaimStatus.SETTLED ? randomFloat(20, 100) : null
+
+    // CareType based on policy type
+    const careType = policy.type === 'Salud'
+      ? getRandomElement([CareType.AMBULATORY, CareType.HOSPITALIZATION, CareType.EMERGENCY])
+      : CareType.OTHER
 
     await prisma.claim.create({
       data: {
@@ -942,13 +958,19 @@ async function main() {
         patientId: patient.id,
         clientId: patient.clientId,
         status,
-        type: policy.type === 'Salud' ? 'Consulta médica' : 'Tratamiento dental',
-        description: `Reclamo de ${policy.type?.toLowerCase()} - ${patient.firstName} ${patient.lastName}`,
-        amount,
-        approvedAmount,
+        careType,
+        diagnosisDescription: `Reclamo de ${policy.type?.toLowerCase()} - ${patient.firstName} ${patient.lastName}`,
+        description: `Atención ${careType.toLowerCase().replace('_', ' ')}`,
+        amountSubmitted,
+        amountApproved,
+        amountDenied,
+        deductibleApplied,
+        copayApplied,
         incidentDate,
         submittedDate,
-        resolvedDate,
+        settlementDate,
+        businessDays,
+        settlementNumber: status === ClaimStatus.SETTLED ? `LIQ-2025-${String(i + 1).padStart(5, '0')}` : null,
         createdById: claimsUser.id,
       },
     })
@@ -1010,7 +1032,6 @@ async function main() {
    */
   async function createInvoiceWithPoliciesAndValidation(params: {
     invoiceNumber: string
-    insurerInvoiceNumber: string
     clientId: string
     billingPeriod: string
     uploadedByUserId: string
@@ -1019,8 +1040,7 @@ async function main() {
     initialPaymentStatus: PaymentStatus
     runValidation: boolean
   }): Promise<InvoiceScenarioResult> {
-    const { invoiceNumber, insurerInvoiceNumber, clientId, billingPeriod, uploadedByUserId, policiesForInvoice } =
-      params
+    const { invoiceNumber, clientId, billingPeriod, uploadedByUserId, policiesForInvoice } = params
 
     if (policiesForInvoice.length === 0) {
       throw new Error(`No policies for invoice ${invoiceNumber}`)
@@ -1032,7 +1052,6 @@ async function main() {
     const invoice = await prisma.invoice.create({
       data: {
         invoiceNumber,
-        insurerInvoiceNumber,
         insurerId: primaryPolicy.insurerId,
         clientId,
         status: params.initialStatus,
@@ -1045,7 +1064,6 @@ async function main() {
         actualAffiliateCount: 0,
         issueDate: new Date(2025, billingPeriod.endsWith('-01') ? 0 : 1, 5),
         dueDate: new Date(2025, billingPeriod.endsWith('-01') ? 0 : 1, 20),
-        uploadedById: uploadedByUserId,
       },
     })
 
@@ -1096,8 +1114,7 @@ async function main() {
   const client0Policies = (activePoliciesByClient.get(clients[0]!.id) ?? []).filter(p => p.type === 'Salud').slice(0, 1)
   if (client0Policies.length > 0) {
     const { invoiceId, expectedAmount, expectedCount } = await createInvoiceWithPoliciesAndValidation({
-      invoiceNumber: 'INV-2025-001',
-      insurerInvoiceNumber: 'CLIENT0-JAN-001',
+      invoiceNumber: 'MAPFRE-2025-001',
       clientId: clients[0]!.id,
       billingPeriod: '2025-01',
       uploadedByUserId: brokerUsers[0]!.id,
@@ -1121,7 +1138,7 @@ async function main() {
         paymentDate: new Date(2025, 0, 18),
       },
     })
-    invoicesCreated.push({ id: invoiceId, invoiceNumber: 'INV-2025-001' })
+    invoicesCreated.push({ id: invoiceId, invoiceNumber: 'MAPFRE-2025-001' })
   }
 
   // ========================================================================
@@ -1130,8 +1147,7 @@ async function main() {
   const client1Policies = (activePoliciesByClient.get(clients[1]!.id) ?? []).slice(0, 2)
   if (client1Policies.length > 0) {
     const { invoiceId, expectedAmount, expectedCount } = await createInvoiceWithPoliciesAndValidation({
-      invoiceNumber: 'INV-2025-002',
-      insurerInvoiceNumber: 'CLIENT1-JAN-002',
+      invoiceNumber: 'RIMAC-2025-001',
       clientId: clients[1]!.id,
       billingPeriod: '2025-01',
       uploadedByUserId: brokerUsers[2]!.id,
@@ -1154,7 +1170,7 @@ async function main() {
         amountMatches: true,
       },
     })
-    invoicesCreated.push({ id: invoiceId, invoiceNumber: 'INV-2025-002' })
+    invoicesCreated.push({ id: invoiceId, invoiceNumber: 'RIMAC-2025-001' })
   }
 
   // ========================================================================
@@ -1163,8 +1179,7 @@ async function main() {
   const client2Policies = (activePoliciesByClient.get(clients[2]!.id) ?? []).slice(0, 1)
   if (client2Policies.length > 0) {
     const { invoiceId, expectedAmount, expectedCount } = await createInvoiceWithPoliciesAndValidation({
-      invoiceNumber: 'INV-2025-003',
-      insurerInvoiceNumber: 'CLIENT2-JAN-003',
+      invoiceNumber: 'PACIFICO-2025-001',
       clientId: clients[2]!.id,
       billingPeriod: '2025-01',
       uploadedByUserId: brokerUsers[1]!.id,
@@ -1188,7 +1203,7 @@ async function main() {
         discrepancyNotes: 'Insurer billed $500 more than expected. Under review.',
       },
     })
-    invoicesCreated.push({ id: invoiceId, invoiceNumber: 'INV-2025-003' })
+    invoicesCreated.push({ id: invoiceId, invoiceNumber: 'PACIFICO-2025-001' })
   }
 
   // ========================================================================
@@ -1197,8 +1212,7 @@ async function main() {
   const client3Policies = (activePoliciesByClient.get(clients[3]!.id) ?? []).slice(0, 2)
   if (client3Policies.length > 0) {
     const { invoiceId, expectedAmount, expectedCount } = await createInvoiceWithPoliciesAndValidation({
-      invoiceNumber: 'INV-2025-004',
-      insurerInvoiceNumber: 'CLIENT3-FEB-001',
+      invoiceNumber: 'MAPFRE-2025-002',
       clientId: clients[3]!.id,
       billingPeriod: '2025-02',
       uploadedByUserId: brokerUsers[2]!.id,
@@ -1222,7 +1236,7 @@ async function main() {
         discrepancyNotes: 'Insurer billed for 3 extra owners not in our records.',
       },
     })
-    invoicesCreated.push({ id: invoiceId, invoiceNumber: 'INV-2025-004' })
+    invoicesCreated.push({ id: invoiceId, invoiceNumber: 'MAPFRE-2025-002' })
   }
 
   // ========================================================================
@@ -1231,8 +1245,7 @@ async function main() {
   const client4Policies = (activePoliciesByClient.get(clients[4]!.id) ?? []).slice(0, 1)
   if (client4Policies.length > 0) {
     const { invoiceId } = await createInvoiceWithPoliciesAndValidation({
-      invoiceNumber: 'INV-2025-005',
-      insurerInvoiceNumber: 'CLIENT4-FEB-002',
+      invoiceNumber: 'RIMAC-2025-002',
       clientId: clients[4]!.id,
       billingPeriod: '2025-02',
       uploadedByUserId: brokerUsers[2]!.id,
@@ -1250,7 +1263,7 @@ async function main() {
         actualAffiliateCount: 15,
       },
     })
-    invoicesCreated.push({ id: invoiceId, invoiceNumber: 'INV-2025-005' })
+    invoicesCreated.push({ id: invoiceId, invoiceNumber: 'RIMAC-2025-002' })
   }
 
   // ========================================================================
@@ -1259,8 +1272,7 @@ async function main() {
   const client0PoliciesForCancelled = (activePoliciesByClient.get(clients[0]!.id) ?? []).slice(0, 1)
   if (client0PoliciesForCancelled.length > 0) {
     const { invoiceId } = await createInvoiceWithPoliciesAndValidation({
-      invoiceNumber: 'INV-2025-006',
-      insurerInvoiceNumber: 'CLIENT0-JAN-DUP',
+      invoiceNumber: 'MAPFRE-2025-003',
       clientId: clients[0]!.id,
       billingPeriod: '2025-01',
       uploadedByUserId: brokerUsers[0]!.id,
@@ -1278,7 +1290,7 @@ async function main() {
         discrepancyNotes: 'Duplicate invoice. Cancelled.',
       },
     })
-    invoicesCreated.push({ id: invoiceId, invoiceNumber: 'INV-2025-006' })
+    invoicesCreated.push({ id: invoiceId, invoiceNumber: 'MAPFRE-2025-003' })
   }
 
   console.log(`✓ Created ${invoicesCreated.length} invoices with realistic expectations\n`)

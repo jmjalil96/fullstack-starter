@@ -13,10 +13,11 @@ import { DetailSidebar, type SidebarItem } from '../../../shared/components/ui/l
 import { PageHeader } from '../../../shared/components/ui/layout/PageHeader'
 import { WorkflowStepper } from '../../../shared/components/ui/layout/WorkflowStepper'
 import { formatCurrency, formatDate } from '../../../shared/utils/formatters'
-import { CLAIM_LIFECYCLE } from '../claimLifecycle'
+import { CARE_TYPE_LABELS, CLAIM_LIFECYCLE, isTerminalState } from '../claimLifecycle'
 import type { ClaimStatus } from '../claims'
 import { useClaimDetail } from '../hooks/useClaims'
 
+import { ClaimFilesTab } from './ClaimFilesTab'
 import { EditClaimModal } from './EditClaimModal'
 import { StatusTransitionModal } from './StatusTransitionModal'
 
@@ -136,9 +137,26 @@ export function ClaimDetail() {
         </svg>
       ),
     },
+    {
+      id: 'files',
+      label: 'Archivos',
+      icon: (
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+          />
+        </svg>
+      ),
+    },
   ]
 
   const statusConfig = CLAIM_LIFECYCLE[claim.status]
+  const careTypeLabel = claim.careType ? CARE_TYPE_LABELS[claim.careType] : null
+  const isSettled = claim.status === 'SETTLED'
+  const canEdit = !isTerminalState(claim.status)
 
   return (
     <DetailLayout
@@ -151,7 +169,11 @@ export function ClaimDetail() {
             { label: 'Reclamos', to: '/reclamos' },
             { label: claim.claimNumber },
           ]}
-          action={<Button onClick={() => setEditModalOpen(true)}>Editar Reclamo</Button>}
+          action={
+            canEdit ? (
+              <Button onClick={() => setEditModalOpen(true)}>Editar Reclamo</Button>
+            ) : undefined
+          }
         />
       }
       sidebar={<DetailSidebar items={sidebarItems} activeId={activeTab} onSelect={setActiveTab} />}
@@ -169,24 +191,38 @@ export function ClaimDetail() {
           <DetailSection title="Información del Reclamo">
             <DataGrid columns={3}>
               <DataField label="Número de Reclamo" value={claim.claimNumber} />
-              <DataField label="Tipo" value={claim.type} />
+              <DataField
+                label="Tipo de Atención"
+                value={
+                  careTypeLabel ? (
+                    <StatusBadge label={careTypeLabel} color="blue" />
+                  ) : null
+                }
+              />
               <DataField
                 label="Estado"
                 value={<StatusBadge label={statusConfig.label} color={statusConfig.color} />}
               />
 
-              <DataField label="Fecha del Incidente" value={formatDate(claim.incidentDate)} />
-              <DataField label="Fecha de Envío" value={formatDate(claim.submittedDate)} />
-              <DataField label="Fecha de Resolución" value={formatDate(claim.resolvedDate)} />
+              <DataField label="Fecha de Incurrencia" value={formatDate(claim.incidentDate)} />
+              <DataField label="Fecha de Presentación" value={formatDate(claim.submittedDate)} />
+              <DataField label="Días Laborables" value={claim.businessDays} />
 
               <DataField label="Descripción" value={claim.description} fullWidth />
             </DataGrid>
           </DetailSection>
 
-          <DetailSection title="Montos y Póliza">
+          <DetailSection title="Diagnóstico">
+            <DataGrid columns={2}>
+              <DataField label="Código Diagnóstico (CIE-10)" value={claim.diagnosisCode} />
+              <DataField label="Descripción del Diagnóstico" value={claim.diagnosisDescription} />
+            </DataGrid>
+          </DetailSection>
+
+          <DetailSection title="Montos">
             <DataGrid columns={3}>
-              <DataField label="Monto Reclamado" value={formatCurrency(claim.amount)} />
-              <DataField label="Monto Aprobado" value={formatCurrency(claim.approvedAmount)} />
+              <DataField label="Monto Presentado" value={formatCurrency(claim.amountSubmitted)} />
+              <DataField label="Monto Aprobado" value={formatCurrency(claim.amountApproved)} />
               <DataField
                 label="Póliza"
                 value={
@@ -202,6 +238,25 @@ export function ClaimDetail() {
               />
             </DataGrid>
           </DetailSection>
+
+          {/* Settlement Section - Only show when settled */}
+          {isSettled && (
+            <DetailSection title="Liquidación">
+              <DataGrid columns={3}>
+                <DataField label="Fecha de Liquidación" value={formatDate(claim.settlementDate)} />
+                <DataField label="Número de Liquidación" value={claim.settlementNumber} />
+                <DataField label="Gastos No Elegibles" value={formatCurrency(claim.amountDenied)} />
+                <DataField label="Gastos No Procesados" value={formatCurrency(claim.amountUnprocessed)} />
+                <DataField label="Deducible Aplicado" value={formatCurrency(claim.deductibleApplied)} />
+                <DataField label="Copago" value={formatCurrency(claim.copayApplied)} />
+              </DataGrid>
+              {claim.settlementNotes && (
+                <div className="mt-4">
+                  <DataField label="Observaciones" value={claim.settlementNotes} fullWidth />
+                </div>
+              )}
+            </DetailSection>
+          )}
 
           <DetailSection title="Partes Involucradas">
             <DataGrid columns={3}>
@@ -226,16 +281,49 @@ export function ClaimDetail() {
             </DataGrid>
           </DetailSection>
 
+          {/* Reprocesses Section - Only show if there are reprocesses */}
+          {claim.reprocesses && claim.reprocesses.length > 0 && (
+            <DetailSection title="Historial de Reprocesos">
+              <div className="space-y-3">
+                {claim.reprocesses.map((reprocess, index) => (
+                  <div
+                    key={reprocess.id}
+                    className="p-4 bg-gray-50 rounded-lg border border-gray-200"
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="text-sm font-medium text-gray-900">
+                        Reproceso #{index + 1}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {formatDate(reprocess.reprocessDate)}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-600">{reprocess.reprocessDescription}</p>
+                    {reprocess.businessDays !== null && (
+                      <p className="text-xs text-gray-500 mt-2">
+                        Días laborables: {reprocess.businessDays}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </DetailSection>
+          )}
+
           {/* Metadata Section */}
           <DetailSection title="Información del Sistema">
             <DataGrid columns={2}>
               <DataField label="Creado por" value={claim.createdByName} />
               <DataField label="Fecha de Creación" value={formatDate(claim.createdAt)} />
+              <DataField label="Actualizado por" value={claim.updatedByName} />
               <DataField label="Última Actualización" value={formatDate(claim.updatedAt)} />
             </DataGrid>
           </DetailSection>
         </>
       )}
+
+      {/* Files Tab */}
+      {activeTab === 'files' && <ClaimFilesTab claimId={claim.id} canDelete={canEdit} />}
 
       {/* Edit Modal */}
       <EditClaimModal isOpen={editModalOpen} onClose={() => setEditModalOpen(false)} claimId={claim.id} />

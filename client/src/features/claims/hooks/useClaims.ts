@@ -10,6 +10,12 @@ export const CLAIMS_KEYS = {
   list: (params: Record<string, unknown>) => [...CLAIMS_KEYS.lists(), params] as const,
   details: () => [...CLAIMS_KEYS.all, 'detail'] as const,
   detail: (id: string) => [...CLAIMS_KEYS.details(), id] as const,
+  // Kanban keys (separate cache namespace from list view)
+  kanban: () => [...CLAIMS_KEYS.all, 'kanban'] as const,
+  kanbanColumn: (status: ClaimStatus) => [...CLAIMS_KEYS.kanban(), status] as const,
+  // Mobile list keys (infinite scroll, separate from paginated list)
+  mobileList: () => [...CLAIMS_KEYS.all, 'mobile'] as const,
+  mobileListParams: (params: Record<string, unknown>) => [...CLAIMS_KEYS.mobileList(), params] as const,
 }
 
 // --- List Query ---
@@ -18,16 +24,21 @@ interface UseClaimsParams {
   search?: string
   status?: ClaimStatus
   clientId?: string
+  dateField?: string
+  dateFrom?: string
+  dateTo?: string
   page?: number
   limit?: number
+  enabled?: boolean
 }
 
-export function useClaims(params: UseClaimsParams = {}) {
+export function useClaims({ enabled = true, ...params }: UseClaimsParams = {}) {
   return useQuery({
     queryKey: CLAIMS_KEYS.list(params as Record<string, unknown>),
     queryFn: ({ signal }) => getClaims(params, { signal }),
     placeholderData: keepPreviousData,
     staleTime: 1000 * 60 * 5,
+    enabled,
   })
 }
 

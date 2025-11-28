@@ -21,8 +21,8 @@ const router = Router()
  * Update claim with strict lifecycle validation
  *
  * Authorization:
- * - Only SENIOR_CLAIM_MANAGERS (SUPER_ADMIN, CLAIMS_EMPLOYEE) can edit SUBMITTED/UNDER_REVIEW
- * - Only SUPER_ADMIN can access APPROVED/REJECTED terminal states
+ * - Only SENIOR_CLAIM_MANAGERS (SUPER_ADMIN, CLAIMS_EMPLOYEE) can edit non-terminal states
+ * - Only SUPER_ADMIN can access terminal states (RETURNED, SETTLED, CANCELLED)
  * - Other roles (AFFILIATE, CLIENT_ADMIN, other employees) cannot edit
  *
  * Workflow (strict two-step):

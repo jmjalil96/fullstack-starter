@@ -1,22 +1,15 @@
 /**
  * Claim Lifecycle Rules (Frontend)
  *
- * ⚠️⚠️⚠️ CRITICAL: MANUAL COPY FROM BACKEND BLUEPRINT ⚠️⚠️⚠️
- *
  * SOURCE FILE: api/src/features/claims/shared/claimLifecycle.blueprint.ts
  *
- * IF YOU CHANGE LIFECYCLE RULES IN THE BACKEND, YOU MUST MANUALLY UPDATE THIS FILE!
+ * 7-Status Workflow:
+ * DRAFT → VALIDATION → SUBMITTED → SETTLED (normal flow)
+ *                   ↘ RETURNED (if documents incomplete)
+ *         SUBMITTED → PENDING_INFO → SUBMITTED (reprocess loop)
+ * Any state → CANCELLED
  *
- * Fields to keep in sync:
- * - editableFields arrays (which fields can be edited per status)
- * - transitions arrays (valid status changes)
- * - requirements arrays (fields needed before transitioning)
- * - status labels
- *
- * Last synced: 2025-11-07
- * Synced by: Juan Jalil
- *
- * TODO: Consider auto-generating this file from backend blueprint at build time
+ * Terminal states: RETURNED, SETTLED, CANCELLED
  */
 
 import type { ClaimStatus } from './claims'
@@ -37,9 +30,9 @@ export type TransitionVariant = 'primary' | 'success' | 'danger'
 export interface Transition {
   /** Target status */
   status: ClaimStatus
-  /** Short label for UI (e.g., "Aprobar") */
+  /** Short label for UI (e.g., "Tramitar") */
   label: string
-  /** Full button label (e.g., "✓ Aprobar Reclamo") */
+  /** Full button label (e.g., "Tramitar →") */
   buttonLabel: string
   /** Button variant/color */
   variant: TransitionVariant
@@ -60,91 +53,236 @@ export interface Transition {
  * - Valid status transitions
  * - Required fields before transitioning
  *
- * Flow: SUBMITTED → UNDER_REVIEW → APPROVED/REJECTED (terminal)
+ * Flow: DRAFT → VALIDATION → SUBMITTED → SETTLED
+ * with PENDING_INFO as reprocess loop from SUBMITTED
+ * RETURNED, CANCELLED as terminal alternatives
  */
 export const CLAIM_LIFECYCLE = {
   /**
-   * SUBMITTED - Initial state when claim is created
+   * DRAFT - Initial state when claim is created
    * Editable by: SENIOR_CLAIM_MANAGERS
    */
-  SUBMITTED: {
-    label: 'Enviado',
-    color: 'blue',
-    editableFields: ['description', 'amount', 'policyId', 'incidentDate', 'type', 'submittedDate'],
-    lockedFields: ['approvedAmount', 'resolvedDate'],
+  DRAFT: {
+    label: 'Borrador',
+    color: 'gray',
+    editableFields: [
+      'careType',
+      'diagnosisCode',
+      'diagnosisDescription',
+      'amountSubmitted',
+      'incidentDate',
+      'submittedDate',
+      'description',
+      'policyId',
+    ],
+    lockedFields: [],
     transitions: [
       {
-        status: 'UNDER_REVIEW' as ClaimStatus,
-        label: 'Mover a Revisión',
-        buttonLabel: 'Mover a Revisión →',
+        status: 'VALIDATION' as ClaimStatus,
+        label: 'Validar',
+        buttonLabel: 'Validar →',
         variant: 'primary' as TransitionVariant,
         icon: '→',
       },
-    ],
-    requirements: ['description', 'amount', 'policyId', 'incidentDate', 'type', 'submittedDate'],
-  },
-
-  /**
-   * UNDER_REVIEW - Claim is being actively reviewed
-   * Editable by: SENIOR_CLAIM_MANAGERS
-   */
-  UNDER_REVIEW: {
-    label: 'En Revisión',
-    color: 'yellow',
-    editableFields: ['approvedAmount', 'resolvedDate'],
-    lockedFields: ['description', 'amount', 'policyId', 'incidentDate', 'type', 'submittedDate'],
-    transitions: [
       {
-        status: 'APPROVED' as ClaimStatus,
-        label: 'Aprobar',
-        buttonLabel: '✓ Aprobar Reclamo',
-        variant: 'success' as TransitionVariant,
-        icon: '✓',
-      },
-      {
-        status: 'REJECTED' as ClaimStatus,
-        label: 'Rechazar',
-        buttonLabel: '✗ Rechazar Reclamo',
+        status: 'CANCELLED' as ClaimStatus,
+        label: 'Cancelar',
+        buttonLabel: 'Cancelar',
         variant: 'danger' as TransitionVariant,
         icon: '✗',
       },
     ],
-    requirements: [
-      'description',
-      'amount',
-      'policyId',
+    transitionRequirements: {
+      VALIDATION: ['careType', 'incidentDate', 'submittedDate', 'amountSubmitted', 'diagnosisDescription'],
+      CANCELLED: [],
+    },
+  },
+
+  /**
+   * VALIDATION - Internal review before sending to insurer
+   * Editable by: SENIOR_CLAIM_MANAGERS
+   */
+  VALIDATION: {
+    label: 'Validación',
+    color: 'yellow',
+    editableFields: [
+      'careType',
+      'diagnosisCode',
+      'diagnosisDescription',
+      'amountSubmitted',
       'incidentDate',
-      'type',
       'submittedDate',
-      'approvedAmount',
-      'resolvedDate',
+      'description',
+      'policyId',
     ],
+    lockedFields: [],
+    transitions: [
+      {
+        status: 'SUBMITTED' as ClaimStatus,
+        label: 'Tramitar',
+        buttonLabel: 'Tramitar →',
+        variant: 'primary' as TransitionVariant,
+        icon: '→',
+      },
+      {
+        status: 'RETURNED' as ClaimStatus,
+        label: 'Devolver',
+        buttonLabel: 'Devolver',
+        variant: 'danger' as TransitionVariant,
+        icon: '↩',
+      },
+      {
+        status: 'CANCELLED' as ClaimStatus,
+        label: 'Cancelar',
+        buttonLabel: 'Cancelar',
+        variant: 'danger' as TransitionVariant,
+        icon: '✗',
+      },
+    ],
+    transitionRequirements: {
+      SUBMITTED: [],
+      RETURNED: [],
+      CANCELLED: [],
+    },
   },
 
   /**
-   * APPROVED - Terminal state (claim was approved)
-   * Editable by: SUPER_ADMIN only (no fields currently editable)
+   * SUBMITTED - Sent to insurer (Tramitado)
+   * Editable by: SENIOR_CLAIM_MANAGERS
+   * Only businessDays editable while waiting for insurer response
    */
-  APPROVED: {
-    label: 'Aprobado',
-    color: 'green',
-    editableFields: [],
-    lockedFields: ['*'], // All fields locked
-    transitions: [],
-    requirements: [],
+  SUBMITTED: {
+    label: 'Tramitado',
+    color: 'blue',
+    editableFields: [
+      'businessDays',
+      'amountApproved',
+      'amountDenied',
+      'amountUnprocessed',
+      'deductibleApplied',
+      'copayApplied',
+      'settlementDate',
+      'settlementNumber',
+      'settlementNotes',
+    ],
+    lockedFields: ['*'],
+    transitions: [
+      {
+        status: 'PENDING_INFO' as ClaimStatus,
+        label: 'Solicitar Info',
+        buttonLabel: 'Solicitar Info',
+        variant: 'primary' as TransitionVariant,
+        icon: '?',
+      },
+      {
+        status: 'SETTLED' as ClaimStatus,
+        label: 'Liquidar',
+        buttonLabel: '✓ Liquidar',
+        variant: 'success' as TransitionVariant,
+        icon: '✓',
+      },
+      {
+        status: 'CANCELLED' as ClaimStatus,
+        label: 'Cancelar',
+        buttonLabel: 'Cancelar',
+        variant: 'danger' as TransitionVariant,
+        icon: '✗',
+      },
+    ],
+    transitionRequirements: {
+      PENDING_INFO: [],
+      SETTLED: [
+        'amountApproved',
+        'amountDenied',
+        'amountUnprocessed',
+        'deductibleApplied',
+        'copayApplied',
+        'settlementDate',
+        'settlementNumber',
+      ],
+      CANCELLED: [],
+    },
   },
 
   /**
-   * REJECTED - Terminal state (claim was rejected)
-   * Editable by: SUPER_ADMIN only (no fields currently editable)
+   * PENDING_INFO - Insurer requested more information
+   * Editable by: SENIOR_CLAIM_MANAGERS
+   * Can edit data fields and then resubmit to insurer
    */
-  REJECTED: {
-    label: 'Rechazado',
+  PENDING_INFO: {
+    label: 'Pendiente Info',
+    color: 'orange',
+    editableFields: [
+      'careType',
+      'diagnosisCode',
+      'diagnosisDescription',
+      'amountSubmitted',
+      'incidentDate',
+      'submittedDate',
+      'description',
+      'policyId',
+      'businessDays',
+    ],
+    lockedFields: [],
+    transitions: [
+      {
+        status: 'SUBMITTED' as ClaimStatus,
+        label: 'Reenviar',
+        buttonLabel: 'Reenviar →',
+        variant: 'primary' as TransitionVariant,
+        icon: '→',
+      },
+      {
+        status: 'CANCELLED' as ClaimStatus,
+        label: 'Cancelar',
+        buttonLabel: 'Cancelar',
+        variant: 'danger' as TransitionVariant,
+        icon: '✗',
+      },
+    ],
+    transitionRequirements: {
+      SUBMITTED: [], // Reprocess fields collected in StatusTransitionModal
+      CANCELLED: [],
+    },
+  },
+
+  /**
+   * RETURNED - Returned by insurer (Terminal)
+   * Editable by: SUPER_ADMIN only (for future features)
+   */
+  RETURNED: {
+    label: 'Devuelto',
     color: 'red',
     editableFields: [],
-    lockedFields: ['*'], // All fields locked
+    lockedFields: ['*'],
     transitions: [],
-    requirements: [],
+    transitionRequirements: {},
+  },
+
+  /**
+   * SETTLED - Settlement received (Terminal)
+   * Editable by: SUPER_ADMIN only (for future features)
+   */
+  SETTLED: {
+    label: 'Liquidado',
+    color: 'green',
+    editableFields: [],
+    lockedFields: ['*'],
+    transitions: [],
+    transitionRequirements: {},
+  },
+
+  /**
+   * CANCELLED - Cancelled (Terminal)
+   * Editable by: SUPER_ADMIN only (for future features)
+   */
+  CANCELLED: {
+    label: 'Cancelado',
+    color: 'gray',
+    editableFields: [],
+    lockedFields: ['*'],
+    transitions: [],
+    transitionRequirements: {},
   },
 } as const
 
@@ -158,13 +296,35 @@ export const CLAIM_LIFECYCLE = {
  */
 export const FIELD_LABELS = {
   description: 'Descripción',
-  amount: 'Monto Reclamado',
-  approvedAmount: 'Monto Aprobado',
+  careType: 'Tipo de Atención',
+  diagnosisCode: 'Código Diagnóstico',
+  diagnosisDescription: 'Descripción Diagnóstico',
+  amountSubmitted: 'Monto Presentado',
+  amountApproved: 'Monto Aprobado',
+  amountDenied: 'Gastos No Elegibles',
+  amountUnprocessed: 'Gastos No Procesados',
+  deductibleApplied: 'Deducible Aplicado',
+  copayApplied: 'Copago',
+  incidentDate: 'Fecha de Incurrencia',
+  submittedDate: 'Fecha de Presentación',
+  settlementDate: 'Fecha de Liquidación',
+  settlementNumber: 'Número de Liquidación',
+  settlementNotes: 'Observaciones',
+  businessDays: 'Días Laborables',
   policyId: 'Póliza',
-  incidentDate: 'Fecha del Incidente',
-  submittedDate: 'Fecha de Envío',
-  resolvedDate: 'Fecha de Resolución',
-  type: 'Tipo de Reclamo',
+  reprocessDate: 'Fecha de Reproceso',
+  reprocessDescription: 'Descripción de Reproceso',
+} as const
+
+/**
+ * Spanish labels for CareType enum values
+ */
+export const CARE_TYPE_LABELS = {
+  AMBULATORY: 'Ambulatorio',
+  HOSPITALIZATION: 'Hospitalización',
+  MATERNITY: 'Maternidad',
+  EMERGENCY: 'Emergencia',
+  OTHER: 'Otro',
 } as const
 
 // ============================================================================
@@ -199,4 +359,11 @@ export type ClaimField = keyof typeof FIELD_LABELS
  */
 export function isFieldPresent(value: unknown): boolean {
   return value !== null && value !== undefined
+}
+
+/**
+ * Check if a status is a terminal state
+ */
+export function isTerminalState(status: ClaimStatus): boolean {
+  return ['RETURNED', 'SETTLED', 'CANCELLED'].includes(status)
 }

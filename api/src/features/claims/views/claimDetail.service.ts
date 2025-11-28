@@ -9,14 +9,14 @@
 
 import { db } from '../../../config/database.js'
 import { ALL_AUTHORIZED_ROLES } from '../../../shared/constants/roles.js'
-import {
-  ForbiddenError,
-  NotFoundError,
-  UnauthorizedError,
-} from '../../../shared/errors/errors.js'
+import { ForbiddenError, NotFoundError, UnauthorizedError } from '../../../shared/errors/errors.js'
 import { logger } from '../../../shared/middleware/logger.js'
 
-import type { ClaimDetailResponse } from './claimDetail.dto.js'
+import type {
+  ClaimDetailResponse,
+  ClaimInvoiceItem,
+  ClaimReprocessItem,
+} from './claimDetail.dto.js'
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -81,20 +81,35 @@ export async function getClaimById(
       claimSequence: true,
       claimNumber: true,
       status: true,
-      type: true,
       description: true,
-      amount: true,
-      approvedAmount: true,
+      // Diagnosis fields
+      careType: true,
+      diagnosisCode: true,
+      diagnosisDescription: true,
+      // Financial fields
+      amountSubmitted: true,
+      amountApproved: true,
+      amountDenied: true,
+      amountUnprocessed: true,
+      deductibleApplied: true,
+      copayApplied: true,
+      // Date fields
       incidentDate: true,
       submittedDate: true,
-      resolvedDate: true,
+      settlementDate: true,
       createdAt: true,
       updatedAt: true,
+      // Settlement fields
+      businessDays: true,
+      settlementNumber: true,
+      settlementNotes: true,
+      // Relations
       clientId: true,
       affiliateId: true,
       patientId: true,
       policyId: true,
       createdById: true,
+      updatedById: true,
       client: {
         select: { name: true },
       },
@@ -109,6 +124,37 @@ export async function getClaimById(
       },
       createdBy: {
         select: { name: true },
+      },
+      updatedBy: {
+        select: { name: true },
+      },
+      // Claim invoices
+      invoices: {
+        select: {
+          id: true,
+          invoiceNumber: true,
+          providerName: true,
+          amountSubmitted: true,
+          createdAt: true,
+          createdBy: {
+            select: { name: true },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      },
+      // Claim reprocesses
+      reprocesses: {
+        select: {
+          id: true,
+          reprocessDate: true,
+          reprocessDescription: true,
+          businessDays: true,
+          createdAt: true,
+          createdBy: {
+            select: { name: true },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
       },
     },
   })
@@ -127,8 +173,13 @@ export async function getClaimById(
     // AFFILIATE can only view claims where they are the main affiliate
     if (claim.affiliateId !== user.affiliate?.id) {
       logger.warn(
-        { userId, claimId, claimAffiliateId: claim.affiliateId, userAffiliateId: user.affiliate?.id },
-        'AFFILIATE attempted to access another user\'s claim'
+        {
+          userId,
+          claimId,
+          claimAffiliateId: claim.affiliateId,
+          userAffiliateId: user.affiliate?.id,
+        },
+        "AFFILIATE attempted to access another user's claim"
       )
       throw new NotFoundError('Reclamo no encontrado')
     }
@@ -137,7 +188,12 @@ export async function getClaimById(
     const hasAccess = user.clientAccess.some((uc) => uc.clientId === claim.clientId)
     if (!hasAccess) {
       logger.warn(
-        { userId, claimId, claimClientId: claim.clientId, accessibleClients: user.clientAccess.map((c) => c.clientId) },
+        {
+          userId,
+          claimId,
+          claimClientId: claim.clientId,
+          accessibleClients: user.clientAccess.map((c) => c.clientId),
+        },
         'CLIENT_ADMIN attempted unauthorized claim access'
       )
       throw new NotFoundError('Reclamo no encontrado')
@@ -149,21 +205,55 @@ export async function getClaimById(
   const patientRelationship: 'self' | 'dependent' =
     claim.patientId === claim.affiliateId ? 'self' : 'dependent'
 
-  // STEP 7: Transform to Flat DTO Structure
+  // STEP 7: Transform invoices to DTO
+  const invoices: ClaimInvoiceItem[] = claim.invoices.map((inv) => ({
+    id: inv.id,
+    invoiceNumber: inv.invoiceNumber,
+    providerName: inv.providerName,
+    amountSubmitted: inv.amountSubmitted,
+    createdByName: inv.createdBy.name,
+    createdAt: inv.createdAt.toISOString(),
+  }))
+
+  // STEP 8: Transform reprocesses to DTO
+  const reprocesses: ClaimReprocessItem[] = claim.reprocesses.map((rp) => ({
+    id: rp.id,
+    reprocessDate: rp.reprocessDate.toISOString().split('T')[0],
+    reprocessDescription: rp.reprocessDescription,
+    businessDays: rp.businessDays,
+    createdByName: rp.createdBy.name,
+    createdAt: rp.createdAt.toISOString(),
+  }))
+
+  // STEP 9: Transform to Flat DTO Structure
   const response: ClaimDetailResponse = {
     id: claim.id,
     claimSequence: claim.claimSequence,
     claimNumber: claim.claimNumber,
     status: claim.status as ClaimDetailResponse['status'],
-    type: claim.type,
     description: claim.description,
-    amount: claim.amount,
-    approvedAmount: claim.approvedAmount,
+    // Diagnosis fields
+    careType: claim.careType as ClaimDetailResponse['careType'],
+    diagnosisCode: claim.diagnosisCode,
+    diagnosisDescription: claim.diagnosisDescription,
+    // Financial fields
+    amountSubmitted: claim.amountSubmitted,
+    amountApproved: claim.amountApproved,
+    amountDenied: claim.amountDenied,
+    amountUnprocessed: claim.amountUnprocessed,
+    deductibleApplied: claim.deductibleApplied,
+    copayApplied: claim.copayApplied,
+    // Date fields
     incidentDate: claim.incidentDate?.toISOString().split('T')[0] ?? null,
     submittedDate: claim.submittedDate?.toISOString().split('T')[0] ?? null,
-    resolvedDate: claim.resolvedDate?.toISOString().split('T')[0] ?? null,
+    settlementDate: claim.settlementDate?.toISOString().split('T')[0] ?? null,
     createdAt: claim.createdAt.toISOString(),
     updatedAt: claim.updatedAt.toISOString(),
+    // Settlement fields
+    businessDays: claim.businessDays,
+    settlementNumber: claim.settlementNumber,
+    settlementNotes: claim.settlementNotes,
+    // Related entities
     clientId: claim.clientId,
     clientName: claim.client.name,
     affiliateId: claim.affiliateId,
@@ -177,12 +267,17 @@ export async function getClaimById(
     policyNumber: claim.policy?.policyNumber ?? null,
     createdById: claim.createdById,
     createdByName: claim.createdBy.name,
+    updatedById: claim.updatedById,
+    updatedByName: claim.updatedBy?.name ?? null,
+    // Related collections
+    invoices,
+    reprocesses,
   }
 
-  // STEP 8: Log Successful Access
+  // STEP 10: Log Successful Access
   logger.info({ userId, claimId, role: roleName }, 'Claim detail retrieved')
 
-  // STEP 9: Return Response
+  // STEP 11: Return Response
   return response
 }
 

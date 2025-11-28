@@ -31,20 +31,12 @@ import { z } from 'zod'
  */
 export const updateInvoiceSchema = z
   .object({
-    /** Invoice number (our internal identifier) */
+    /** Invoice number (insurer's reference) */
     invoiceNumber: z
       .string({ message: 'El número de factura debe ser texto' })
       .trim()
-      .min(3, 'El número de factura debe tener al menos 3 caracteres')
+      .min(1, 'El número de factura debe tener al menos 1 caracter')
       .max(100, 'El número de factura no puede exceder 100 caracteres')
-      .optional(),
-
-    /** Insurer's invoice number (their reference) */
-    insurerInvoiceNumber: z
-      .string({ message: 'El número de factura de la aseguradora debe ser texto' })
-      .trim()
-      .min(1, 'El número de factura de la aseguradora debe tener al menos 1 caracter')
-      .max(100, 'El número de factura de la aseguradora no puede exceder 100 caracteres')
       .optional(),
 
     /** Client ID (company being billed) */

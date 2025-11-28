@@ -7,26 +7,18 @@ import { z } from 'zod'
 /**
  * Request body validation for POST /api/invoices
  *
- * Invoice number must be unique (enforced at database level).
  * If policyIds provided, all policies must belong to the specified insurer.
  * Dates must be valid ISO 8601 format.
  * Unknown fields are stripped.
  */
 export const createInvoiceSchema = z
   .object({
-    /** Invoice number (our internal identifier) */
+    /** Invoice number (insurer's reference) */
     invoiceNumber: z
       .string({ message: 'El número de factura es requerido' })
       .trim()
-      .min(3, 'El número de factura debe tener al menos 3 caracteres')
+      .min(1, 'El número de factura debe tener al menos 1 caracter')
       .max(100, 'El número de factura no puede exceder 100 caracteres'),
-
-    /** Insurer's invoice number (their reference) */
-    insurerInvoiceNumber: z
-      .string({ message: 'El número de factura de la aseguradora es requerido' })
-      .trim()
-      .min(1, 'El número de factura de la aseguradora debe tener al menos 1 caracter')
-      .max(100, 'El número de factura de la aseguradora no puede exceder 100 caracteres'),
 
     /** Client ID (company being billed) */
     clientId: z

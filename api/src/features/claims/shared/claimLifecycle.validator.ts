@@ -44,8 +44,7 @@
  * ```
  */
 
-import type { ClaimStatus } from '../views/viewClaims.dto.js'
-
+import type { ClaimLifecycleState } from './claimLifecycle.blueprint.js'
 import { CLAIM_LIFECYCLE_BLUEPRINT } from './claimLifecycle.blueprint.js'
 
 /**
@@ -62,9 +61,9 @@ export class ClaimLifecycleValidator {
    * @example
    * canUserEdit('OPERATIONS_EMPLOYEE', 'SUBMITTED') // false (not in SENIOR_CLAIM_MANAGERS)
    * canUserEdit('CLAIMS_EMPLOYEE', 'SUBMITTED')    // true (in SENIOR_CLAIM_MANAGERS)
-   * canUserEdit('SUPER_ADMIN', 'APPROVED')         // true (in SUPER_ADMIN_ONLY)
+   * canUserEdit('SUPER_ADMIN', 'SETTLED')          // true (in SUPER_ADMIN_ONLY)
    */
-  canUserEdit(role: string, status: ClaimStatus): boolean {
+  canUserEdit(role: string, status: ClaimLifecycleState): boolean {
     const rules = CLAIM_LIFECYCLE_BLUEPRINT[status]
     if (!rules) return false
 
@@ -79,19 +78,19 @@ export class ClaimLifecycleValidator {
    * @returns Array of forbidden field names (empty if all allowed)
    *
    * @example
-   * // Trying to edit approvedAmount in SUBMITTED
-   * forbiddenFields({ approvedAmount: 100 }, 'SUBMITTED')
-   * // Returns: ['approvedAmount']
-   *
-   * // Trying to edit description in SUBMITTED
+   * // Trying to edit description in SUBMITTED (not allowed)
    * forbiddenFields({ description: 'Updated' }, 'SUBMITTED')
+   * // Returns: ['description']
+   *
+   * // Trying to edit businessDays in SUBMITTED (allowed)
+   * forbiddenFields({ businessDays: 5 }, 'SUBMITTED')
    * // Returns: [] (allowed)
    *
    * // Multiple fields, some forbidden
-   * forbiddenFields({ description: 'x', approvedAmount: 100 }, 'SUBMITTED')
-   * // Returns: ['approvedAmount']
+   * forbiddenFields({ businessDays: 5, description: 'x' }, 'SUBMITTED')
+   * // Returns: ['description']
    */
-  forbiddenFields(updates: Record<string, unknown>, status: ClaimStatus): string[] {
+  forbiddenFields(updates: Record<string, unknown>, status: ClaimLifecycleState): string[] {
     const rules = CLAIM_LIFECYCLE_BLUEPRINT[status]
     if (!rules) return Object.keys(updates) // If no rules, all forbidden
 
@@ -109,11 +108,11 @@ export class ClaimLifecycleValidator {
    * @returns true if transition is allowed, false otherwise
    *
    * @example
-   * canTransition('SUBMITTED', 'UNDER_REVIEW') // true
-   * canTransition('SUBMITTED', 'APPROVED')     // false (must go through UNDER_REVIEW)
-   * canTransition('APPROVED', 'REJECTED')      // false (APPROVED is terminal)
+   * canTransition('SUBMITTED', 'PENDING_INFO') // true
+   * canTransition('SUBMITTED', 'CANCELLED')    // true
+   * canTransition('SETTLED', 'SUBMITTED')      // false (SETTLED is terminal)
    */
-  canTransition(from: ClaimStatus, to: ClaimStatus): boolean {
+  canTransition(from: ClaimLifecycleState, to: ClaimLifecycleState): boolean {
     const rules = CLAIM_LIFECYCLE_BLUEPRINT[from]
     if (!rules) return false
 
@@ -132,28 +131,28 @@ export class ClaimLifecycleValidator {
    * @returns Array of missing required field names (empty if all present)
    *
    * @example
-   * // Current claim missing policyId, trying to transition
+   * // Current claim missing careType, trying to transition DRAFT→VALIDATION
    * missingRequirements(
-   *   { description: 'x', amount: 100, policyId: null },
-   *   { status: 'UNDER_REVIEW' },
-   *   'UNDER_REVIEW'
+   *   { status: 'DRAFT', careType: null, amountSubmitted: 100 },
+   *   { status: 'VALIDATION' },
+   *   'VALIDATION'
    * )
-   * // Returns: ['policyId', ...] (still null in merged state)
+   * // Returns: ['careType', ...] (still null in merged state)
    *
-   * // Setting policyId AND status in same request
+   * // Setting careType AND status in same request
    * missingRequirements(
-   *   { description: 'x', amount: 100, policyId: null },
-   *   { status: 'UNDER_REVIEW', policyId: 'abc123' },
-   *   'UNDER_REVIEW'
+   *   { status: 'DRAFT', careType: null, amountSubmitted: 100 },
+   *   { status: 'VALIDATION', careType: 'AMBULATORY' },
+   *   'VALIDATION'
    * )
-   * // Returns: [] (policyId now present in merged state)
+   * // Returns: [] (careType now present in merged state)
    */
   missingRequirements(
     current: Record<string, unknown>,
     updates: Record<string, unknown>,
-    to: ClaimStatus
+    to: ClaimLifecycleState
   ): string[] {
-    const fromStatus = (current.status as ClaimStatus) || 'SUBMITTED'
+    const fromStatus = (current.status as ClaimLifecycleState) || 'DRAFT'
     const rules = CLAIM_LIFECYCLE_BLUEPRINT[fromStatus]
     if (!rules) return []
 

@@ -12,18 +12,11 @@ import { z } from 'zod'
  * Backend will re-validate for security.
  */
 export const invoiceFormSchema = z.object({
-  /** Invoice number (our internal identifier) */
+  /** Invoice number (insurer's reference) */
   invoiceNumber: z
     .string()
     .trim()
-    .min(3, 'El número de factura debe tener al menos 3 caracteres')
-    .max(100, 'El número de factura no puede exceder 100 caracteres'),
-
-  /** Insurer's invoice number (their reference) */
-  insurerInvoiceNumber: z
-    .string()
-    .trim()
-    .min(1, 'El número de factura de la aseguradora es requerido')
+    .min(1, 'El número de factura es requerido')
     .max(100, 'El número de factura no puede exceder 100 caracteres'),
 
   /** Client ID (company being billed) */

@@ -11,7 +11,7 @@ import { SearchableSelect, type SelectOption } from '../../../shared/components/
 interface AffiliateFormProps {
   id?: string
   onSubmit?: FormEventHandler<HTMLFormElement>
-  mode?: 'create' | 'edit'
+  mode?: 'edit' | 'add-to-policy'
   clientOptions?: SelectOption[]
   ownerOptions?: SelectOption[]
 }
@@ -32,7 +32,7 @@ const COVERAGE_TYPE_OPTIONS: SelectOption[] = [
 export function AffiliateForm({
   id,
   onSubmit,
-  mode = 'create',
+  mode = 'edit',
   clientOptions = [],
   ownerOptions = [],
 }: AffiliateFormProps) {
@@ -65,6 +65,7 @@ export function AffiliateForm({
                 onChange={field.onChange}
                 placeholder="Seleccionar cliente..."
                 error={fieldState.error}
+                disabled={mode === 'add-to-policy'}
               />
             )}
           />
@@ -235,7 +236,27 @@ export function AffiliateForm({
         </DataGrid>
       </DetailSection>
 
-      {/* Section 5: Estado (Edit Only) */}
+      {/* Section 5: Fecha de Incorporación (Add to Policy Only) */}
+      {mode === 'add-to-policy' && (
+        <DetailSection title="Fecha de Incorporación">
+          <DataGrid columns={1}>
+            <Controller
+              name="addedAt"
+              control={control}
+              render={({ field, fieldState }) => (
+                <DateInput
+                  label="Fecha de Incorporación a la Póliza"
+                  variant="light"
+                  error={fieldState.error}
+                  {...field}
+                />
+              )}
+            />
+          </DataGrid>
+        </DetailSection>
+      )}
+
+      {/* Section 6: Estado (Edit Only) */}
       {mode === 'edit' && (
         <DetailSection title="Estado">
           <Controller

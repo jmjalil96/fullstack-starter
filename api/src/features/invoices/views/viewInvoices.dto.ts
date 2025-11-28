@@ -24,7 +24,6 @@ export interface InvoiceListItemResponse {
   // Core identification
   id: string
   invoiceNumber: string
-  insurerInvoiceNumber: string
 
   // Status
   status: InvoiceStatus

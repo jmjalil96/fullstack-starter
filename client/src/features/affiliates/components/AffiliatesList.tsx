@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
 import type {
@@ -10,10 +9,7 @@ import { useAffiliates } from '../../../features/affiliates/hooks/useAffiliates'
 import { DataTable, type Column } from '../../../shared/components/ui/data-display/DataTable'
 import { FilterBar, type FilterConfig } from '../../../shared/components/ui/data-display/FilterBar'
 import { StatusBadge } from '../../../shared/components/ui/data-display/StatusBadge'
-import { ButtonDropdown } from '../../../shared/components/ui/interactive/ButtonDropdown'
 import { PageHeader } from '../../../shared/components/ui/layout/PageHeader'
-
-import { CreateAffiliateModal } from './CreateAffiliateModal'
 
 // --- Constants ---
 const DEFAULT_PAGE = 1
@@ -142,7 +138,6 @@ const COLUMNS: Column<AffiliateListItemResponse>[] = [
 export function AffiliatesList() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const [isCreateOpen, setCreateOpen] = useState(false)
 
   // Derive filters from URL on every render (URL is source of truth)
   const filters: Record<string, string> = {
@@ -230,26 +225,6 @@ export function AffiliatesList() {
           { label: 'Inicio', to: '/dashboard' },
           { label: 'Afiliados' },
         ]}
-        action={
-          <ButtonDropdown
-            label="Nuevo Afiliado"
-            mainAction={() => setCreateOpen(true)}
-            items={[
-              { label: 'Importar Afiliados', onClick: () => console.warn('Import not implemented') },
-              { label: 'Descargar Reporte', onClick: () => console.warn('Export not implemented') },
-            ]}
-            icon={
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 4v16m8-8H4"
-                />
-              </svg>
-            }
-          />
-        }
       />
 
       {/* Filters */}
@@ -278,9 +253,6 @@ export function AffiliatesList() {
         onRowClick={(aff) => navigate(`/afiliados/${aff.id}`)}
         emptyMessage="No se encontraron afiliados con estos filtros."
       />
-
-      {/* Create Modal */}
-      <CreateAffiliateModal isOpen={isCreateOpen} onClose={() => setCreateOpen(false)} />
     </div>
   )
 }

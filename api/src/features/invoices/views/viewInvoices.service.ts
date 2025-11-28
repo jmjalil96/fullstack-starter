@@ -126,11 +126,8 @@ export async function getInvoices(
   }
 
   if (query.search) {
-    // Search in invoice numbers (case-insensitive partial match)
-    where.OR = [
-      { invoiceNumber: { contains: query.search, mode: 'insensitive' } },
-      { insurerInvoiceNumber: { contains: query.search, mode: 'insensitive' } },
-    ]
+    // Search in invoice number (case-insensitive partial match)
+    where.invoiceNumber = { contains: query.search, mode: 'insensitive' }
   }
 
   // STEP 5: Calculate Pagination
@@ -149,7 +146,6 @@ export async function getInvoices(
       select: {
         id: true,
         invoiceNumber: true,
-        insurerInvoiceNumber: true,
         status: true,
         paymentStatus: true,
         clientId: true,
@@ -178,7 +174,6 @@ export async function getInvoices(
   const transformedInvoices: InvoiceListItemResponse[] = invoices.map((invoice) => ({
     id: invoice.id,
     invoiceNumber: invoice.invoiceNumber,
-    insurerInvoiceNumber: invoice.insurerInvoiceNumber,
     status: invoice.status as InvoiceListItemResponse['status'],
     paymentStatus: invoice.paymentStatus as InvoiceListItemResponse['paymentStatus'],
     clientId: invoice.clientId,

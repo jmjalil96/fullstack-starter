@@ -5,6 +5,19 @@
 import { z } from 'zod'
 
 /**
+ * Claim status enum for validation
+ */
+export const CLAIM_STATUS_ENUM = [
+  'DRAFT',
+  'PENDING_INFO',
+  'VALIDATION',
+  'SUBMITTED',
+  'RETURNED',
+  'SETTLED',
+  'CANCELLED',
+] as const
+
+/**
  * Query parameter validation for GET /api/claims
  *
  * All filters are optional except page/limit (which have defaults).
@@ -14,14 +27,12 @@ import { z } from 'zod'
  * Defaults:
  * - page: 1
  * - limit: 20
- *
- * Note: search is normalized to uppercase for case-insensitive claimNumber matching
  */
 export const getClaimsQuerySchema = z
   .object({
     /** Filter by claim status */
     status: z
-      .enum(['SUBMITTED', 'UNDER_REVIEW', 'APPROVED', 'REJECTED'], {
+      .enum(CLAIM_STATUS_ENUM, {
         message: 'Estado inválido',
       })
       .optional(),
@@ -29,13 +40,26 @@ export const getClaimsQuerySchema = z
     /** Filter by client ID (for broker employees) */
     clientId: z.string().cuid('ID de cliente inválido').optional(),
 
-    /** Search by claim number (case-insensitive, exact match) */
-    search: z
+    /** Search by claim number, affiliate name, or patient name (partial match, case-insensitive) */
+    search: z.string().trim().max(100).optional(),
+
+    /** Date field to filter on */
+    dateField: z
+      .enum(['submittedDate', 'createdAt', 'incidentDate', 'settlementDate'], {
+        message: 'Campo de fecha inválido',
+      })
+      .optional(),
+
+    /** Start date for range filter (ISO format: YYYY-MM-DD) */
+    dateFrom: z
       .string()
-      .trim()
-      .toUpperCase()
-      .min(3, 'Búsqueda debe tener al menos 3 caracteres')
-      .max(50)
+      .regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha inválido (YYYY-MM-DD)')
+      .optional(),
+
+    /** End date for range filter (ISO format: YYYY-MM-DD) */
+    dateTo: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha inválido (YYYY-MM-DD)')
       .optional(),
 
     /** Page number (validated >= 1, default: 1) */
@@ -43,8 +67,7 @@ export const getClaimsQuerySchema = z
 
     /** Items per page (validated 1-100, default: 20) */
     limit: z
-      .coerce
-      .number()
+      .coerce.number()
       .int()
       .min(1, 'Límite debe estar entre 1 y 100')
       .max(100, 'Límite debe estar entre 1 y 100')

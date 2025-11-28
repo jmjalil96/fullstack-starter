@@ -9,6 +9,7 @@ import { useToast } from '../../../shared/hooks/useToast'
 import {
   useAvailableInvoiceClients,
   useAvailableInvoiceInsurers,
+  useAvailableInvoicePolicies,
 } from '../hooks/useInvoiceLookups'
 import { useCreateInvoice } from '../hooks/useInvoiceMutations'
 import { invoiceFormSchema, type InvoiceFormData } from '../schemas/createInvoiceSchema'
@@ -35,7 +36,6 @@ export function CreateInvoiceModal({ isOpen, onClose }: CreateInvoiceModalProps)
     mode: 'onChange',
     defaultValues: {
       invoiceNumber: '',
-      insurerInvoiceNumber: '',
       clientId: '',
       insurerId: '',
       billingPeriod: '',
@@ -48,7 +48,17 @@ export function CreateInvoiceModal({ isOpen, onClose }: CreateInvoiceModalProps)
     },
   })
 
-  const { handleSubmit, setError, setFocus, reset } = form
+  const { handleSubmit, setError, setFocus, reset, watch, setValue } = form
+
+  // Watch client and insurer for policy fetching
+  const clientId = watch('clientId')
+  const insurerId = watch('insurerId')
+
+  // Fetch policies only when both client and insurer are selected
+  const { data: policies = [], isLoading: loadingPolicies } = useAvailableInvoicePolicies(
+    { clientId, insurerId },
+    !!(clientId && insurerId)
+  )
 
   // Reset form when modal closes
   useEffect(() => {
@@ -57,17 +67,27 @@ export function CreateInvoiceModal({ isOpen, onClose }: CreateInvoiceModalProps)
     }
   }, [isOpen, reset])
 
+  // Reset policies when client changes
+  useEffect(() => {
+    setValue('policyIds', [], { shouldValidate: false })
+  }, [clientId, setValue])
+
+  // Reset policies when insurer changes
+  useEffect(() => {
+    setValue('policyIds', [], { shouldValidate: false })
+  }, [insurerId, setValue])
+
   // Convert options for SearchableSelect
   const clientOptions = clients.map((c) => ({ value: c.id, label: c.name }))
   const insurerOptions = insurers.map((i) => ({
     value: i.id,
     label: i.code ? `${i.name} (${i.code})` : i.name,
   }))
-  // Policy selection is handled separately if needed
-  // const policyOptions = policies.map((p) => ({
-  //   value: p.id,
-  //   label: `${p.policyNumber} (${p.startDate} - ${p.endDate})`,
-  // }))
+  // Format policy options following the established pattern
+  const policyOptions = policies.map((p) => ({
+    value: p.id,
+    label: `${p.policyNumber} - ${p.type || 'Sin tipo'}`,
+  }))
 
   const onSubmit = handleSubmit(async (data) => {
     try {
@@ -78,7 +98,6 @@ export function CreateInvoiceModal({ isOpen, onClose }: CreateInvoiceModalProps)
 
       await createMutation.mutateAsync({
         invoiceNumber: data.invoiceNumber,
-        insurerInvoiceNumber: data.insurerInvoiceNumber,
         clientId: data.clientId,
         insurerId: data.insurerId,
         billingPeriod: data.billingPeriod,
@@ -146,6 +165,8 @@ export function CreateInvoiceModal({ isOpen, onClose }: CreateInvoiceModalProps)
           mode="create"
           clientOptions={clientOptions}
           insurerOptions={insurerOptions}
+          policyOptions={policyOptions}
+          loadingPolicies={loadingPolicies}
         />
       </FormProvider>
     </Modal>

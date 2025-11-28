@@ -75,9 +75,9 @@ export function SearchableSelect({
 
     setDropdownPos({
       top: shouldFlipToTop
-        ? rect.top + window.scrollY - dropdownHeight - 4
-        : rect.bottom + window.scrollY + 4,
-      left: rect.left + window.scrollX,
+        ? rect.top - dropdownHeight - 4
+        : rect.bottom + 4,
+      left: rect.left,
       width: rect.width,
       flipToTop: shouldFlipToTop,
     })
@@ -253,7 +253,7 @@ export function SearchableSelect({
             tabIndex={-1}
             onKeyDown={handleDropdownKeyDown}
             style={{
-              position: 'absolute',
+              position: 'fixed',
               top: `${dropdownPos.top}px`,
               left: `${dropdownPos.left}px`,
               width: `${dropdownPos.width}px`,

@@ -1,12 +1,19 @@
 /**
  * validateInvoice.service.ts
- * Service for calculating invoice validation with pro-rata billing
+ * Service for calculating invoice validation with T+1 lagged billing model
+ *
+ * T+1 Lagged Billing Model:
+ * Invoice M = BASE + ADJUSTMENTS
+ * - BASE = (M-1 cutoff snapshot) × (M premium)
+ * - ADJUSTMENTS = Activity in window (M-2 cutoff → M-1 cutoff]
+ *
+ * Critical Rule: Activity after cutoff M cannot appear in invoice M+1. Must wait for M+2.
  *
  * Calculates expected amounts based on:
  * - OWNERS only (not dependents - family tier pricing)
- * - Pro-rata for mid-period joins/exits (using addedAt/removedAt)
  * - Coverage type premiums (T, TPLUS1, TPLUSF)
- * - Aggregated by tier per policy
+ * - Base billing for affiliates in cutoff snapshot
+ * - Pro-rata adjustments for mid-period joins/exits
  *
  * Updates:
  * - InvoicePolicy records with expectedAmount, expectedBreakdown, expectedAffiliateCount
@@ -35,10 +42,9 @@ import {
 import { logger } from '../../../shared/middleware/logger.js'
 import {
   daysBetweenInclusive,
-  maxDate,
-  minDate,
+  getAdjustmentWindow,
+  getDaysInMonth,
   normalizeToMidnight,
-  parseBillingPeriod,
 } from '../../../shared/utils/dates.js'
 
 import type { ValidateInvoiceResponse } from './validateInvoice.dto.js'
@@ -56,12 +62,41 @@ interface UserContext {
 }
 
 /**
- * Tier breakdown structure
+ * Individual adjustment for an affiliate
  */
-interface TierBreakdown {
-  T: { fullPeriod: number; proRated: number; amount: number }
-  TPLUS1: { fullPeriod: number; proRated: number; amount: number }
-  TPLUSF: { fullPeriod: number; proRated: number; amount: number }
+interface AffiliateAdjustment {
+  affiliateId: string
+  affiliateName: string
+  type: 'JOINED' | 'LEFT' | 'JOINED_AND_LEFT' | 'TIER_CHANGED'
+  activityDate: string
+  coverageDays: number
+  amount: number
+  tier: CoverageType
+  oldTier?: CoverageType // For TIER_CHANGED: tier before the change
+  newTier?: CoverageType // For TIER_CHANGED: tier after the change
+}
+
+/**
+ * Base breakdown by tier
+ */
+interface BaseBreakdown {
+  T: { count: number; amount: number }
+  TPLUS1: { count: number; amount: number }
+  TPLUSF: { count: number; amount: number }
+}
+
+/**
+ * New breakdown structure with base + adjustments
+ */
+interface BillingBreakdown {
+  base: {
+    count: number
+    amount: number
+    byTier: BaseBreakdown
+  }
+  adjustments: AffiliateAdjustment[]
+  adjustmentsTotal: number
+  total: number
 }
 
 // ============================================================================
@@ -69,16 +104,16 @@ interface TierBreakdown {
 // ============================================================================
 
 /**
- * Calculate and populate invoice validation fields
+ * Calculate and populate invoice validation fields using T+1 lagged billing
  *
  * Authorization:
  * - Only BROKER_EMPLOYEES can run validation
  *
  * Process:
- * - Parses billing period to date range
- * - For each policy: queries OWNERS active during period
- * - Calculates pro-rata amounts based on coverage days
- * - Aggregates by coverage tier (T, TPLUS1, TPLUSF)
+ * - Gets insurer's billing cutoff day
+ * - Calculates base cutoff (M-1) and adjustment window (M-2 → M-1)
+ * - BASE: Affiliates active at M-1 cutoff × premium
+ * - ADJUSTMENTS: Pro-rata for activity in adjustment window
  * - Updates InvoicePolicy with breakdown
  * - Updates Invoice with totals
  * - Status remains unchanged
@@ -110,7 +145,7 @@ export async function calculateInvoiceValidation(
     throw new ForbiddenError('No tienes permiso para validar facturas')
   }
 
-  // STEP 3: Load Invoice
+  // STEP 3: Load Invoice with Insurer (for billingCutoffDay)
   const invoice = await db.invoice.findUnique({
     where: { id: invoiceId },
     select: {
@@ -118,6 +153,12 @@ export async function calculateInvoiceValidation(
       invoiceNumber: true,
       status: true,
       billingPeriod: true,
+      insurer: {
+        select: {
+          id: true,
+          billingCutoffDay: true,
+        },
+      },
     },
   })
 
@@ -133,14 +174,15 @@ export async function calculateInvoiceValidation(
     throw new BadRequestError('La factura no tiene período de facturación definido')
   }
 
-  // STEP 4: Parse Billing Period
-  let periodStart: Date, periodEnd: Date, daysInPeriod: number
+  // STEP 4: Get Billing Dates
+  const cutoffDay = invoice.insurer.billingCutoffDay
+  let windowStart: Date, windowEnd: Date, baseCutoff: Date
 
   try {
-    const parsed = parseBillingPeriod(invoice.billingPeriod)
-    periodStart = parsed.periodStart
-    periodEnd = parsed.periodEnd
-    daysInPeriod = parsed.daysInPeriod
+    const window = getAdjustmentWindow(invoice.billingPeriod, cutoffDay)
+    windowStart = window.windowStart
+    windowEnd = window.windowEnd
+    baseCutoff = window.baseCutoff
   } catch {
     throw new BadRequestError(`Período de facturación inválido: ${invoice.billingPeriod}`)
   }
@@ -167,126 +209,307 @@ export async function calculateInvoiceValidation(
 
   // STEP 6: Calculate Expected Values in Transaction
   const results = await db.$transaction(async (tx) => {
+    // =====================================================================
+    // 6a. BATCH QUERY: Load all base owners across all policies (single query)
+    // =====================================================================
+    const policyIds = invoicePolicies.map((ip) => ip.policy.id)
+
+    const allBaseOwners = await tx.policyAffiliate.findMany({
+      where: {
+        policyId: { in: policyIds },
+        affiliate: { affiliateType: 'OWNER' }, // Filter OWNERS at DB level
+        addedAt: { lte: baseCutoff },
+        OR: [{ removedAt: { gt: baseCutoff } }, { removedAt: null }],
+      },
+      include: {
+        affiliate: {
+          select: {
+            id: true,
+            coverageType: true,
+          },
+        },
+      },
+    })
+
+    // =====================================================================
+    // 6b. BATCH QUERY: Load all window owners across all policies (single query)
+    // =====================================================================
+    const allWindowOwners = await tx.policyAffiliate.findMany({
+      where: {
+        policyId: { in: policyIds },
+        affiliate: { affiliateType: 'OWNER' }, // Filter OWNERS at DB level
+        OR: [
+          { addedAt: { gt: windowStart, lte: windowEnd } },
+          { removedAt: { gt: windowStart, lte: windowEnd } },
+        ],
+      },
+      include: {
+        affiliate: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            coverageType: true,
+          },
+        },
+      },
+    })
+
+    // =====================================================================
+    // 6c. BATCH QUERY: Load all tier-changed owners across all policies
+    // =====================================================================
+    const allTierChangedOwners = await tx.policyAffiliate.findMany({
+      where: {
+        policyId: { in: policyIds },
+        affiliate: {
+          affiliateType: 'OWNER',
+          tierChangedAt: { gt: windowStart, lte: windowEnd },
+          previousCoverageType: { not: null },
+        },
+      },
+      include: {
+        affiliate: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            coverageType: true,
+            tierChangedAt: true,
+            previousCoverageType: true,
+          },
+        },
+      },
+    })
+
+    // =====================================================================
+    // 6d. Group results by policyId (O(n) in-memory operation)
+    // =====================================================================
+    const baseByPolicy = groupByPolicyId(allBaseOwners)
+    const windowByPolicy = groupByPolicyId(allWindowOwners)
+    const tierChangedByPolicy = groupByPolicyId(allTierChangedOwners)
+
+    // =====================================================================
+    // 6d. Calculate breakdowns for each policy
+    // =====================================================================
     let totalExpectedAmount = 0
     let totalExpectedCount = 0
     const policyCalculations = []
+    const policyUpdates: Array<{
+      policyId: string
+      data: {
+        expectedAmount: number
+        expectedBreakdown: Prisma.InputJsonValue
+        expectedAffiliateCount: number
+      }
+    }> = []
 
     for (const invoicePolicy of invoicePolicies) {
       const policy = invoicePolicy.policy
+      const baseOwners = baseByPolicy.get(policy.id) ?? []
+      const windowOwners = windowByPolicy.get(policy.id) ?? []
 
-      // 6a. Find OWNERS active during billing period
-      const policyAffiliates = await tx.policyAffiliate.findMany({
-        where: {
-          policyId: policy.id,
-          addedAt: { lte: periodEnd },
-          OR: [{ removedAt: { gte: periodStart } }, { removedAt: null }],
-        },
-        include: {
-          affiliate: {
-            select: {
-              affiliateType: true,
-              coverageType: true,
-            },
-          },
-        },
-      })
-
-      // Filter to OWNERS only (dependents don't count - family tier pricing)
-      const owners = policyAffiliates.filter((pa) => pa.affiliate.affiliateType === 'OWNER')
-
-      // 6b. Calculate pro-rata for each owner
-      const tierBreakdown: TierBreakdown = {
-        T: { fullPeriod: 0, proRated: 0, amount: 0 },
-        TPLUS1: { fullPeriod: 0, proRated: 0, amount: 0 },
-        TPLUSF: { fullPeriod: 0, proRated: 0, amount: 0 },
+      // Calculate base amount (no pro-rata - they're in the snapshot)
+      const baseBreakdown: BaseBreakdown = {
+        T: { count: 0, amount: 0 },
+        TPLUS1: { count: 0, amount: 0 },
+        TPLUSF: { count: 0, amount: 0 },
       }
 
-      for (const owner of owners) {
-        // Calculate coverage window (normalize to midnight for consistent day counting)
-        const coverageStart = maxDate(normalizeToMidnight(owner.addedAt), periodStart)
-        const coverageEnd = minDate(
-          owner.removedAt ? normalizeToMidnight(owner.removedAt) : periodEnd,
-          periodEnd
-        )
-
-        // Guard against invalid date ranges (defensive)
-        if (coverageEnd < coverageStart) {
-          logger.warn(
-            { policyId: policy.id, affiliateId: owner.affiliateId, coverageStart, coverageEnd },
-            'Invalid coverage window (end before start) - skipping owner'
-          )
-          continue
-        }
-
-        // Calculate days active (inclusive)
-        const daysActive = daysBetweenInclusive(coverageStart, coverageEnd)
-        const isFullPeriod = daysActive === daysInPeriod
-        const proRataFactor = daysActive / daysInPeriod
-
-        // Get tier from owner (guard against null)
+      for (const owner of baseOwners) {
         const tier = owner.affiliate.coverageType
-
         if (!tier) {
           logger.warn(
             { policyId: policy.id, affiliateId: owner.affiliateId },
-            'Owner without coverageType - skipping'
+            'Base owner without coverageType - skipping'
           )
           continue
         }
 
-        // Get premium for tier
         const premium = getPremiumForTier(policy, tier)
-
         if (premium == null) {
           logger.warn(
             { policyId: policy.id, policyNumber: policy.policyNumber, tier },
-            'Premium not configured for tier - skipping owner'
+            'Premium not configured for tier - skipping base owner'
           )
           continue
         }
 
-        // Calculate pro-rated amount
-        const amount = premium * proRataFactor
+        baseBreakdown[tier].count++
+        baseBreakdown[tier].amount += premium
+      }
 
-        // Aggregate by tier
-        if (isFullPeriod) {
-          tierBreakdown[tier].fullPeriod++
-        } else {
-          tierBreakdown[tier].proRated++
+      const baseCount =
+        baseBreakdown.T.count + baseBreakdown.TPLUS1.count + baseBreakdown.TPLUSF.count
+      const baseAmount =
+        baseBreakdown.T.amount + baseBreakdown.TPLUS1.amount + baseBreakdown.TPLUSF.amount
+
+      // Calculate adjustments for window activity
+      const adjustments: AffiliateAdjustment[] = []
+
+      for (const owner of windowOwners) {
+        const tier = owner.affiliate.coverageType
+        if (!tier) {
+          logger.warn(
+            { policyId: policy.id, affiliateId: owner.affiliateId },
+            'Window owner without coverageType - skipping'
+          )
+          continue
         }
-        tierBreakdown[tier].amount += amount
+
+        const premium = getPremiumForTier(policy, tier)
+        if (premium == null) {
+          logger.warn(
+            { policyId: policy.id, policyNumber: policy.policyNumber, tier },
+            'Premium not configured for tier - skipping window owner'
+          )
+          continue
+        }
+
+        // Determine activity type and calculate adjustment
+        const addedAt = normalizeToMidnight(owner.addedAt)
+        const removedAt = owner.removedAt ? normalizeToMidnight(owner.removedAt) : null
+
+        const joinedInWindow = addedAt > windowStart && addedAt <= windowEnd
+        const leftInWindow = removedAt !== null && removedAt > windowStart && removedAt <= windowEnd
+
+        if (joinedInWindow && leftInWindow) {
+          // JOINED_AND_LEFT in window
+          const coverageDays = daysBetweenInclusive(addedAt, removedAt)
+          const daysInMonth = getDaysInActivityMonth(addedAt)
+          const proRataAmount = (coverageDays / daysInMonth) * premium
+
+          adjustments.push({
+            affiliateId: owner.affiliate.id,
+            affiliateName: `${owner.affiliate.firstName} ${owner.affiliate.lastName}`,
+            type: 'JOINED_AND_LEFT',
+            activityDate: addedAt.toISOString().split('T')[0],
+            coverageDays,
+            amount: Math.round(proRataAmount * 100) / 100,
+            tier,
+          })
+        } else if (joinedInWindow) {
+          // JOINED in window
+          const daysInMonth = getDaysInActivityMonth(addedAt)
+          const dayOfMonth = addedAt.getUTCDate()
+          const coverageDays = daysInMonth - dayOfMonth + 1
+          const proRataAmount = (coverageDays / daysInMonth) * premium
+
+          adjustments.push({
+            affiliateId: owner.affiliate.id,
+            affiliateName: `${owner.affiliate.firstName} ${owner.affiliate.lastName}`,
+            type: 'JOINED',
+            activityDate: addedAt.toISOString().split('T')[0],
+            coverageDays,
+            amount: Math.round(proRataAmount * 100) / 100,
+            tier,
+          })
+        } else if (removedAt !== null && leftInWindow) {
+          // LEFT in window
+          const daysInMonth = getDaysInActivityMonth(removedAt)
+          const dayOfMonth = removedAt.getUTCDate()
+          const coverageDays = dayOfMonth
+          const overbilledDays = daysInMonth - coverageDays
+          const creditAmount = (overbilledDays / daysInMonth) * premium
+
+          adjustments.push({
+            affiliateId: owner.affiliate.id,
+            affiliateName: `${owner.affiliate.firstName} ${owner.affiliate.lastName}`,
+            type: 'LEFT',
+            activityDate: removedAt.toISOString().split('T')[0],
+            coverageDays,
+            amount: -Math.round(creditAmount * 100) / 100,
+            tier,
+          })
+        }
       }
 
-      // Round tier amounts to 2 decimal places
-      for (const tier of ['T', 'TPLUS1', 'TPLUSF'] as CoverageType[]) {
-        tierBreakdown[tier].amount = Math.round(tierBreakdown[tier].amount * 100) / 100
+      // Process tier changes in window
+      const tierChangedOwners = tierChangedByPolicy.get(policy.id) ?? []
+
+      for (const owner of tierChangedOwners) {
+        const oldTier = owner.affiliate.previousCoverageType
+        const newTier = owner.affiliate.coverageType
+        const tierChangedAt = owner.affiliate.tierChangedAt
+
+        if (!oldTier || !newTier || !tierChangedAt) continue
+
+        const oldPremium = getPremiumForTier(policy, oldTier)
+        const newPremium = getPremiumForTier(policy, newTier)
+
+        if (oldPremium == null || newPremium == null) {
+          logger.warn(
+            { policyId: policy.id, affiliateId: owner.affiliateId, oldTier, newTier },
+            'Premium not configured for tier change - skipping'
+          )
+          continue
+        }
+
+        // Calculate days in the month of the tier change
+        const changeDate = normalizeToMidnight(tierChangedAt)
+        const daysInMonth = getDaysInActivityMonth(changeDate)
+        const dayOfChange = changeDate.getUTCDate()
+        const daysAtNewTier = daysInMonth - dayOfChange + 1 // Days from change onwards
+
+        // Credit: Old tier was billed full month, should have been partial
+        // Charge: New tier was billed $0, should have been partial
+        const oldTierCredit = -((daysAtNewTier / daysInMonth) * oldPremium)
+        const newTierCharge = (daysAtNewTier / daysInMonth) * newPremium
+        const netAdjustment = oldTierCredit + newTierCharge
+
+        adjustments.push({
+          affiliateId: owner.affiliate.id,
+          affiliateName: `${owner.affiliate.firstName} ${owner.affiliate.lastName}`,
+          type: 'TIER_CHANGED',
+          activityDate: changeDate.toISOString().split('T')[0],
+          coverageDays: daysAtNewTier,
+          amount: Math.round(netAdjustment * 100) / 100,
+          tier: newTier,
+          oldTier,
+          newTier,
+        })
       }
 
-      // 6c. Calculate policy totals
-      const policyExpectedAmount =
-        tierBreakdown.T.amount + tierBreakdown.TPLUS1.amount + tierBreakdown.TPLUSF.amount
+      // Calculate policy totals
+      const adjustmentsTotal = adjustments.reduce((sum, adj) => sum + adj.amount, 0)
+      const policyExpectedAmount = Math.round((baseAmount + adjustmentsTotal) * 100) / 100
+      const policyExpectedCount = baseCount
 
-      const policyExpectedCount =
-        tierBreakdown.T.fullPeriod +
-        tierBreakdown.T.proRated +
-        tierBreakdown.TPLUS1.fullPeriod +
-        tierBreakdown.TPLUS1.proRated +
-        tierBreakdown.TPLUSF.fullPeriod +
-        tierBreakdown.TPLUSF.proRated
-
-      // 6d. Update InvoicePolicy with calculated breakdown
-      await tx.invoicePolicy.update({
-        where: {
-          invoiceId_policyId: { invoiceId, policyId: policy.id },
+      // Build breakdown structure
+      const breakdown: BillingBreakdown = {
+        base: {
+          count: baseCount,
+          amount: Math.round(baseAmount * 100) / 100,
+          byTier: {
+            T: {
+              count: baseBreakdown.T.count,
+              amount: Math.round(baseBreakdown.T.amount * 100) / 100,
+            },
+            TPLUS1: {
+              count: baseBreakdown.TPLUS1.count,
+              amount: Math.round(baseBreakdown.TPLUS1.amount * 100) / 100,
+            },
+            TPLUSF: {
+              count: baseBreakdown.TPLUSF.count,
+              amount: Math.round(baseBreakdown.TPLUSF.amount * 100) / 100,
+            },
+          },
         },
+        adjustments,
+        adjustmentsTotal: Math.round(adjustmentsTotal * 100) / 100,
+        total: policyExpectedAmount,
+      }
+
+      // Collect update for batch execution
+      policyUpdates.push({
+        policyId: policy.id,
         data: {
           expectedAmount: policyExpectedAmount,
-          expectedBreakdown: tierBreakdown as unknown as Prisma.InputJsonValue,
+          expectedBreakdown: breakdown as unknown as Prisma.InputJsonValue,
           expectedAffiliateCount: policyExpectedCount,
         },
       })
 
-      // Accumulate totals (in memory, not from stale DB data)
+      // Accumulate totals
       totalExpectedAmount += policyExpectedAmount
       totalExpectedCount += policyExpectedCount
 
@@ -294,18 +517,31 @@ export async function calculateInvoiceValidation(
         policyNumber: policy.policyNumber,
         expectedAmount: policyExpectedAmount,
         expectedCount: policyExpectedCount,
-        breakdown: tierBreakdown,
+        adjustmentsCount: adjustments.length,
+        breakdown,
       })
     }
 
-    // 6e. Update Invoice with aggregated totals
+    // =====================================================================
+    // 6e. BATCH UPDATE: Update all InvoicePolicies in parallel
+    // =====================================================================
+    await Promise.all(
+      policyUpdates.map(({ policyId, data }) =>
+        tx.invoicePolicy.update({
+          where: { invoiceId_policyId: { invoiceId, policyId } },
+          data,
+        })
+      )
+    )
+
+    // =====================================================================
+    // 6f. Update Invoice with aggregated totals
+    // =====================================================================
     await tx.invoice.update({
       where: { id: invoiceId },
       data: {
-        expectedAmount: totalExpectedAmount,
+        expectedAmount: Math.round(totalExpectedAmount * 100) / 100,
         expectedAffiliateCount: totalExpectedCount,
-        // Status remains unchanged (PENDING)
-        // countMatches, amountMatches remain null (comparison in edit endpoint)
       },
     })
 
@@ -318,7 +554,6 @@ export async function calculateInvoiceValidation(
     select: {
       id: true,
       invoiceNumber: true,
-      insurerInvoiceNumber: true,
       status: true,
       paymentStatus: true,
       billingPeriod: true,
@@ -330,11 +565,6 @@ export async function calculateInvoiceValidation(
       expectedAmount: true,
       amountMatches: true,
       discrepancyNotes: true,
-      fileUrl: true,
-      fileName: true,
-      fileSize: true,
-      mimeType: true,
-      uploadedAt: true,
       issueDate: true,
       dueDate: true,
       paymentDate: true,
@@ -342,10 +572,8 @@ export async function calculateInvoiceValidation(
       updatedAt: true,
       clientId: true,
       insurerId: true,
-      uploadedById: true,
       client: { select: { name: true } },
       insurer: { select: { name: true } },
-      uploadedBy: { select: { name: true } },
       policies: {
         select: {
           policyId: true,
@@ -368,7 +596,6 @@ export async function calculateInvoiceValidation(
   const response: ValidateInvoiceResponse = {
     id: updatedInvoice.id,
     invoiceNumber: updatedInvoice.invoiceNumber,
-    insurerInvoiceNumber: updatedInvoice.insurerInvoiceNumber,
     status: updatedInvoice.status,
     paymentStatus: updatedInvoice.paymentStatus,
     billingPeriod: updatedInvoice.billingPeriod,
@@ -380,11 +607,6 @@ export async function calculateInvoiceValidation(
     expectedAmount: updatedInvoice.expectedAmount,
     amountMatches: updatedInvoice.amountMatches,
     discrepancyNotes: updatedInvoice.discrepancyNotes,
-    fileUrl: updatedInvoice.fileUrl,
-    fileName: updatedInvoice.fileName,
-    fileSize: updatedInvoice.fileSize,
-    mimeType: updatedInvoice.mimeType,
-    uploadedAt: updatedInvoice.uploadedAt?.toISOString() ?? null,
     issueDate: updatedInvoice.issueDate.toISOString().split('T')[0],
     dueDate: updatedInvoice.dueDate?.toISOString().split('T')[0] ?? null,
     paymentDate: updatedInvoice.paymentDate?.toISOString().split('T')[0] ?? null,
@@ -394,8 +616,6 @@ export async function calculateInvoiceValidation(
     clientName: updatedInvoice.client.name,
     insurerId: updatedInvoice.insurerId,
     insurerName: updatedInvoice.insurer.name,
-    uploadedById: updatedInvoice.uploadedById,
-    uploadedByName: updatedInvoice.uploadedBy?.name ?? null,
     policies: updatedInvoice.policies.map((ip) => ({
       policyId: ip.policyId,
       policyNumber: ip.policy.policyNumber,
@@ -413,11 +633,16 @@ export async function calculateInvoiceValidation(
       role: roleName,
       invoiceId,
       invoiceNumber: invoice.invoiceNumber,
+      billingPeriod: invoice.billingPeriod,
+      cutoffDay,
+      baseCutoff: baseCutoff.toISOString().split('T')[0],
+      windowStart: windowStart.toISOString().split('T')[0],
+      windowEnd: windowEnd.toISOString().split('T')[0],
       policiesCalculated: results.policyCalculations.length,
-      totalOwners: results.totalExpectedCount,
+      totalBaseCount: results.totalExpectedCount,
       expectedAmount: results.totalExpectedAmount,
     },
-    'Invoice validation calculated'
+    'Invoice validation calculated (T+1 lagged billing)'
   )
 
   return response
@@ -466,4 +691,40 @@ function getPremiumForTier(
     default:
       return null
   }
+}
+
+/**
+ * Get the number of days in the month of a given date
+ *
+ * Used for pro-rata calculations in adjustment window
+ *
+ * @param date - Date to get month days for
+ * @returns Number of days in that month
+ */
+function getDaysInActivityMonth(date: Date): number {
+  const year = date.getUTCFullYear()
+  const month = date.getUTCMonth() + 1 // getUTCMonth is 0-indexed
+  return getDaysInMonth(year, month)
+}
+
+/**
+ * Group policy affiliates by policyId
+ *
+ * Efficiently groups query results for O(n) lookup by policy.
+ * Used to avoid N+1 queries when processing multiple policies.
+ *
+ * @param items - Array of policy affiliates with policyId
+ * @returns Map of policyId to array of affiliates
+ */
+function groupByPolicyId<T extends { policyId: string }>(items: T[]): Map<string, T[]> {
+  const map = new Map<string, T[]>()
+  for (const item of items) {
+    const existing = map.get(item.policyId)
+    if (existing) {
+      existing.push(item)
+    } else {
+      map.set(item.policyId, [item])
+    }
+  }
+  return map
 }

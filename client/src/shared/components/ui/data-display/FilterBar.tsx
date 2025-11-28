@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef, type ReactNode } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 import { Button } from '../forms/Button'
+import { DateRangeFilter, type DateFieldOption } from '../forms/DateRangeFilter'
 import { Input } from '../forms/Input'
 import { SearchableSelect, type SelectOption } from '../forms/SearchableSelect'
 
@@ -9,15 +10,15 @@ export interface FilterConfig {
   /** Unique key for this filter (used in values object) */
   key: string
   /** Type of filter input */
-  type: 'text' | 'select' | 'searchable-select'
+  type: 'text' | 'select' | 'searchable-select' | 'date-range'
   /** Label text (optional, for accessibility) */
   label?: string
   /** Placeholder text */
   placeholder?: string
   /** Options for select types */
   options?: SelectOption[]
-  /** Optional icon (for text inputs) */
-  icon?: ReactNode
+  /** Options for date-range type (date field options) */
+  dateFieldOptions?: DateFieldOption[]
 }
 
 /** Props for FilterBar component */
@@ -34,18 +35,24 @@ interface FilterBarProps {
 
 /**
  * Filter bar with search and dropdown filters
- * Text inputs are debounced (300ms) to prevent API spam
+ * Text inputs require explicit submit (Enter key or search button)
  * Responsive layout with mobile collapse
+ *
+ * For date-range filters, values are stored with compound keys:
+ * - `{key}Field` - selected date field
+ * - `{key}From` - start date (ISO)
+ * - `{key}To` - end date (ISO)
  *
  * @example
  * const config: FilterConfig[] = [
- *   { key: 'search', type: 'text', placeholder: 'Search...', icon: <SearchIcon /> },
- *   { key: 'status', type: 'searchable-select', label: 'Status', options: [...] }
+ *   { key: 'search', type: 'text', placeholder: 'Search...' },
+ *   { key: 'status', type: 'searchable-select', label: 'Status', options: [...] },
+ *   { key: 'date', type: 'date-range', dateFieldOptions: [...] }
  * ]
  *
  * <FilterBar
  *   config={config}
- *   values={{ search: '', status: '' }}
+ *   values={{ search: '', status: '', dateField: '', dateFrom: '', dateTo: '' }}
  *   onChange={handleFilterChange}
  *   onClear={handleClear}
  * />
@@ -83,99 +90,148 @@ export function FilterBar({ config, values, onChange, onClear }: FilterBarProps)
     prevValuesRef.current = values
   }, [values, config, localTextValues])
 
-  // Debounce text input values (300ms delay) - prevents API spam
-  useEffect(() => {
-    const textFilters = config.filter((f) => f.type === 'text')
-    const hasTextFilters = textFilters.length > 0
-
-    if (!hasTextFilters) return
-
-    const timer = setTimeout(() => {
-      const hasChanges = textFilters.some((filter) => {
-        const localValue = localTextValues[filter.key] ?? values[filter.key] ?? ''
-        const currentValue = values[filter.key] || ''
-        return localValue !== currentValue
-      })
-
-      if (hasChanges) {
-        onChange({ ...values, ...localTextValues })
-      }
-    }, 300)
-
-    return () => clearTimeout(timer)
-  }, [localTextValues]) // eslint-disable-line react-hooks/exhaustive-deps
-
   const handleTextChange = (key: string, value: string) => {
     setLocalTextValues((prev) => ({ ...prev, [key]: value }))
+  }
+
+  const handleTextSubmit = () => {
+    const textFilters = config.filter((f) => f.type === 'text')
+    const hasChanges = textFilters.some((filter) => {
+      const localValue = localTextValues[filter.key] ?? values[filter.key] ?? ''
+      const currentValue = values[filter.key] || ''
+      return localValue !== currentValue
+    })
+
+    if (hasChanges) {
+      onChange({ ...values, ...localTextValues })
+    }
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleTextSubmit()
+    }
   }
 
   const handleSelectChange = (key: string, value: string) => {
     onChange({ ...values, [key]: value })
   }
 
+  const handleDateRangeChange = (
+    key: string,
+    dateValue: { field: string; from: string; to: string }
+  ) => {
+    onChange({
+      ...values,
+      [`${key}Field`]: dateValue.field,
+      [`${key}From`]: dateValue.from,
+      [`${key}To`]: dateValue.to,
+    })
+  }
+
+  const textFilters = config.filter((f) => f.type === 'text')
+  const selectFilters = config.filter((f) => f.type === 'select' || f.type === 'searchable-select')
+  const dateRangeFilters = config.filter((f) => f.type === 'date-range')
+
   return (
     <div className="bg-white/50 backdrop-blur-md border border-gray-200/30 rounded-2xl p-4 shadow-sm mb-6">
       <div className="flex flex-col lg:flex-row lg:items-center gap-4">
         {/* Primary Search Inputs (Text) */}
-        {config
-          .filter((f) => f.type === 'text')
-          .map((filter) => {
-            const inputId = `filter-${filter.key}`
-            const localValue = localTextValues[filter.key] ?? values[filter.key] ?? ''
+        {textFilters.map((filter) => {
+          const inputId = `filter-${filter.key}`
+          const localValue = localTextValues[filter.key] ?? values[filter.key] ?? ''
 
-            return (
-              <div key={filter.key} className="flex-1 min-w-[200px]">
-                {filter.label && (
-                  <label htmlFor={inputId} className="block text-xs font-medium text-gray-700 mb-1">
-                    {filter.label}
-                  </label>
-                )}
+          return (
+            <div key={filter.key} className="flex-1 min-w-[200px]">
+              {filter.label && (
+                <label htmlFor={inputId} className="block text-xs font-medium text-gray-700 mb-1">
+                  {filter.label}
+                </label>
+              )}
+              <div className="flex gap-2">
                 <Input
                   id={inputId}
                   variant="light"
                   placeholder={filter.placeholder}
                   value={localValue}
                   onChange={(e) => handleTextChange(filter.key, e.target.value)}
-                  icon={filter.icon}
+                  onKeyDown={handleKeyDown}
                 />
+                <button
+                  type="button"
+                  onClick={handleTextSubmit}
+                  className="px-3 bg-[var(--color-navy)] text-white rounded-xl hover:bg-[var(--color-navy)]/90 transition-colors"
+                  aria-label="Buscar"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    />
+                  </svg>
+                </button>
               </div>
-            )
-          })}
+            </div>
+          )
+        })}
 
         {/* Toggle Button for Mobile */}
-        <div className="lg:hidden">
-          <Button variant="outline" onClick={() => setIsExpanded(!isExpanded)} fullWidth>
-            {isExpanded ? 'Ocultar Filtros' : 'Mostrar Filtros'}
-          </Button>
-        </div>
+        {(selectFilters.length > 0 || dateRangeFilters.length > 0) && (
+          <div className="lg:hidden">
+            <Button variant="outline" onClick={() => setIsExpanded(!isExpanded)} fullWidth>
+              {isExpanded ? 'Ocultar Filtros' : 'Mostrar Filtros'}
+            </Button>
+          </div>
+        )}
 
-        {/* Secondary Filters (Selects) - Both types render as SearchableSelect for consistency */}
+        {/* Secondary Filters (Selects + Date Range) */}
         <div
           className={`flex flex-col lg:flex-row gap-4 flex-wrap ${
             isExpanded ? 'flex' : 'hidden lg:flex'
           }`}
         >
-          {config
-            .filter((f) => f.type === 'select' || f.type === 'searchable-select')
-            .map((filter) => {
-              const selectId = `filter-${filter.key}`
+          {/* Select Filters */}
+          {selectFilters.map((filter) => {
+            const selectId = `filter-${filter.key}`
 
-              return (
-                <div key={filter.key} className="w-full lg:w-48">
-                  {filter.label && (
-                    <label htmlFor={selectId} className="block text-xs font-medium text-gray-700 mb-1">
-                      {filter.label}
-                    </label>
-                  )}
-                  <SearchableSelect
-                    options={filter.options || []}
-                    value={values[filter.key]}
-                    onChange={(val) => handleSelectChange(filter.key, val)}
-                    placeholder={filter.placeholder}
-                  />
-                </div>
-              )
-            })}
+            return (
+              <div key={filter.key} className="w-full lg:w-48">
+                {filter.label && (
+                  <label htmlFor={selectId} className="block text-xs font-medium text-gray-700 mb-1">
+                    {filter.label}
+                  </label>
+                )}
+                <SearchableSelect
+                  options={filter.options || []}
+                  value={values[filter.key]}
+                  onChange={(val) => handleSelectChange(filter.key, val)}
+                  placeholder={filter.placeholder}
+                />
+              </div>
+            )
+          })}
+
+          {/* Date Range Filters */}
+          {dateRangeFilters.map((filter) => (
+            <div key={filter.key} className="w-full lg:w-48">
+              {filter.label && (
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  {filter.label}
+                </label>
+              )}
+              <DateRangeFilter
+                fieldOptions={filter.dateFieldOptions || []}
+                selectedField={values[`${filter.key}Field`] || ''}
+                dateFrom={values[`${filter.key}From`] || ''}
+                dateTo={values[`${filter.key}To`] || ''}
+                onChange={(val) => handleDateRangeChange(filter.key, val)}
+                placeholder={filter.placeholder}
+              />
+            </div>
+          ))}
 
           {/* Clear Button */}
           {onClear && (

@@ -3,10 +3,22 @@
  */
 
 /**
- * Claim status enum values
- * Terminal states: APPROVED, REJECTED
+ * Claim status enum values (7-status workflow)
+ * Terminal states: RETURNED, SETTLED, CANCELLED
  */
-export type ClaimStatus = 'SUBMITTED' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED'
+export type ClaimStatus =
+  | 'DRAFT'
+  | 'PENDING_INFO'
+  | 'VALIDATION'
+  | 'SUBMITTED'
+  | 'RETURNED'
+  | 'SETTLED'
+  | 'CANCELLED'
+
+/**
+ * Care type enum values
+ */
+export type CareType = 'AMBULATORY' | 'HOSPITALIZATION' | 'MATERNITY' | 'EMERGENCY' | 'OTHER'
 
 /**
  * Single claim item in list view
@@ -32,14 +44,21 @@ export interface ClaimListItemResponse {
   patientFirstName: string
   patientLastName: string
 
-  // Financial data (if available)
-  amount: number | null
-  approvedAmount: number | null
+  // Diagnosis info
+  careType: CareType | null
+
+  // Financial data
+  amountSubmitted: number | null
+  amountApproved: number | null
 
   // Dates (ISO strings)
   submittedDate: string | null
+  settlementDate: string | null
   createdAt: string
 }
+
+/** Valid date fields for filtering */
+export type ClaimDateField = 'submittedDate' | 'createdAt' | 'incidentDate' | 'settlementDate'
 
 /**
  * Query parameters for GET /api/claims
@@ -49,8 +68,14 @@ export interface GetClaimsQueryParams {
   status?: ClaimStatus
   /** Filter by client (for broker employees) */
   clientId?: string
-  /** Search by claim number (case-insensitive, exact match) */
+  /** Search by claim number, affiliate name, or patient name (partial match, case-insensitive) */
   search?: string
+  /** Date field to filter on */
+  dateField?: ClaimDateField
+  /** Start date for range filter (ISO format: YYYY-MM-DD) */
+  dateFrom?: string
+  /** End date for range filter (ISO format: YYYY-MM-DD) */
+  dateTo?: string
   /** Page number (>= 1, default: 1) */
   page?: number
   /** Items per page (1-100, default: 20) */

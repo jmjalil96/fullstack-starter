@@ -27,7 +27,7 @@ export interface UserMenuItem {
   /** Display label */
   label: string
   /** Click handler or path */
-  action: 'profile' | 'settings' | 'logout'
+  action: 'profile' | 'settings' | 'admin' | 'logout'
   /** Whether this item should have a divider above it */
   divider?: boolean
 }
@@ -91,17 +91,12 @@ export const mainNavItems: NavItem[] = [
       {
         label: 'Mis Casos',
         path: '/casos/mis-casos',
-        match: ['/casos/mis-casos', '/casos/mis-casos/:id']
-      },
-      {
-        label: 'Nuevo Caso',
-        path: '/casos/nuevo',
-        match: ['/casos/nuevo']
+        match: ['/casos/mis-casos', '/casos/:id']
       },
       {
         label: 'Casos Abiertos',
         path: '/casos/abiertos',
-        match: ['/casos/abiertos', '/casos/abiertos/:id']
+        match: ['/casos/abiertos']
       },
     ],
   },
@@ -123,5 +118,6 @@ export const mainNavItems: NavItem[] = [
 export const userMenuItems: UserMenuItem[] = [
   { label: 'Perfil', action: 'profile' },
   { label: 'Configuración', action: 'settings' },
+  { label: 'Panel de Administración', action: 'admin', divider: true },
   { label: 'Cerrar Sesión', action: 'logout', divider: true },
 ]

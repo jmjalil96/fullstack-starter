@@ -1,9 +1,12 @@
+/** Color variant for badges */
+export type BadgeColor = 'blue' | 'yellow' | 'green' | 'red' | 'gray' | 'purple' | 'orange'
+
 /** Props for StatusBadge component */
 interface StatusBadgeProps {
   /** Text to display in badge */
   label: string
   /** Color variant */
-  color: 'blue' | 'yellow' | 'green' | 'red' | 'gray' | 'purple' | 'orange'
+  color: BadgeColor
   /** Size variant (defaults to md) */
   size?: 'sm' | 'md'
 }

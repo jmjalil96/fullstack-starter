@@ -49,7 +49,6 @@ export const INVOICE_LIFECYCLE_BLUEPRINT = {
     /** All data entry fields editable (can fix mistakes before validation) */
     editableFields: [
       'invoiceNumber',
-      'insurerInvoiceNumber',
       'clientId',
       'insurerId',
       'billingPeriod',

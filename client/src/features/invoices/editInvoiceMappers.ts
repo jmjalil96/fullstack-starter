@@ -10,7 +10,6 @@ export function getInvoiceFormValues(
 ): InvoiceEditFormData {
   return {
     invoiceNumber: invoice?.invoiceNumber || '',
-    insurerInvoiceNumber: invoice?.insurerInvoiceNumber || '',
     clientId: invoice?.clientId || '',
     insurerId: invoice?.insurerId || '',
     billingPeriod: invoice?.billingPeriod || '',
@@ -60,17 +59,19 @@ export function mapInvoiceEditFormToUpdateRequest(
 
   // String fields (simple)
   if (dirty.invoiceNumber) dto.invoiceNumber = form.invoiceNumber || undefined
-  if (dirty.insurerInvoiceNumber) dto.insurerInvoiceNumber = form.insurerInvoiceNumber || undefined
   if (dirty.clientId) dto.clientId = form.clientId || undefined
   if (dirty.insurerId) dto.insurerId = form.insurerId || undefined
   if (dirty.billingPeriod) dto.billingPeriod = form.billingPeriod === '' ? null : form.billingPeriod
   if (dirty.discrepancyNotes)
     dto.discrepancyNotes = form.discrepancyNotes === '' ? null : form.discrepancyNotes
 
-  // Date fields (ISO strings, empty → undefined to omit)
+  // Date fields (ISO strings)
+  // issueDate: not nullable in backend, so empty → undefined (omit)
   if (dirty.issueDate) dto.issueDate = form.issueDate || undefined
-  if (dirty.dueDate) dto.dueDate = form.dueDate || undefined
-  if (dirty.paymentDate) dto.paymentDate = form.paymentDate || undefined
+  // dueDate and paymentDate: nullable in backend, so empty → null (clear)
+  if (dirty.dueDate) dto.dueDate = form.dueDate === '' ? null : (form.dueDate || undefined)
+  if (dirty.paymentDate)
+    dto.paymentDate = form.paymentDate === '' ? null : (form.paymentDate || undefined)
 
   // Numeric fields (convert string → number | null)
   if (dirty.totalAmount) {

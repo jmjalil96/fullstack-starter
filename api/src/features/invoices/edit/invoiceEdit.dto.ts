@@ -63,11 +63,8 @@ import type { InvoiceDetailResponse } from '../views/invoiceDetail.dto.js'
  * }
  */
 export interface InvoiceUpdateRequest {
-  /** Invoice number (our internal identifier) */
+  /** Invoice number (insurer's reference) */
   invoiceNumber?: string
-
-  /** Insurer's invoice number (their reference) */
-  insurerInvoiceNumber?: string
 
   /** Client ID (company being billed) */
   clientId?: string
@@ -122,7 +119,7 @@ export interface InvoiceUpdateRequest {
  * @example
  * {
  *   "id": "abc123",
- *   "invoiceNumber": "INV-2025-001",
+ *   "invoiceNumber": "MAPFRE-2025-001",
  *   "status": "VALIDATED",
  *   "paymentStatus": "PENDING_PAYMENT",
  *   "clientName": "TechCorp S.A.",

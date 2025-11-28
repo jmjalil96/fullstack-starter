@@ -223,7 +223,6 @@ export function InvoiceDetail() {
           <DetailSection title="Información General">
             <DataGrid columns={3}>
               <DataField label="Número de Factura" value={invoice.invoiceNumber} />
-              <DataField label="Factura Aseguradora" value={invoice.insurerInvoiceNumber} />
               <DataField label="Período de Facturación" value={invoice.billingPeriod || null} />
 
               <DataField

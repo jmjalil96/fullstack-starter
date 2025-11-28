@@ -45,11 +45,8 @@ export interface AvailablePolicyResponse {
  * Mirrors: api/src/features/invoices/new/createInvoice.dto.ts
  */
 export interface CreateInvoiceRequest {
-  /** Invoice number (our internal identifier) */
+  /** Invoice number (insurer's reference) */
   invoiceNumber: string
-
-  /** Insurer's invoice number (their reference) */
-  insurerInvoiceNumber: string
 
   /** Client ID (company being billed) */
   clientId: string
@@ -87,7 +84,6 @@ export interface CreateInvoiceRequest {
 export interface CreateInvoiceResponse {
   id: string
   invoiceNumber: string
-  insurerInvoiceNumber: string
   status: InvoiceStatus
   paymentStatus: PaymentStatus
 
@@ -148,7 +144,6 @@ export interface InvoiceListItemResponse {
   // Core identification
   id: string
   invoiceNumber: string
-  insurerInvoiceNumber: string
 
   // Status
   status: InvoiceStatus
@@ -232,11 +227,8 @@ export interface InvoiceDetailResponse {
   /** Unique invoice ID (CUID) */
   id: string
 
-  /** Internal invoice number (unique business identifier) */
+  /** Invoice number (insurer's reference) */
   invoiceNumber: string
-
-  /** Insurer's invoice number (their reference) */
-  insurerInvoiceNumber: string
 
   /** Validation status (PENDING, VALIDATED, DISCREPANCY, CANCELLED) */
   status: InvoiceStatus
@@ -356,11 +348,8 @@ export interface InvoiceDetailResponse {
  * - CANCELLED: discrepancyNotes only (SUPER_ADMIN)
  */
 export interface InvoiceUpdateRequest {
-  /** Invoice number (our internal identifier) */
+  /** Invoice number (insurer's reference) */
   invoiceNumber?: string
-
-  /** Insurer's invoice number (their reference) */
-  insurerInvoiceNumber?: string
 
   /** Client ID (company being billed) */
   clientId?: string

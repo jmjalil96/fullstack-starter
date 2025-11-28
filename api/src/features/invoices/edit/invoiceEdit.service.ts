@@ -19,7 +19,6 @@ import { Prisma } from '@prisma/client'
 import { db } from '../../../config/database.js'
 import {
   BadRequestError,
-  ConflictError,
   ForbiddenError,
   NotFoundError,
   UnauthorizedError,
@@ -68,7 +67,6 @@ interface UserContext {
  * @throws {UnauthorizedError} If user not found
  * @throws {NotFoundError} If invoice not found
  * @throws {BadRequestError} If validation fails (forbidden fields, invalid transition, missing requirements)
- * @throws {ConflictError} If invoiceNumber already exists
  */
 export async function updateInvoice(
   userId: string,
@@ -215,23 +213,7 @@ export async function updateInvoice(
     )
   }
 
-  // STEP 7: Check Invoice Number Uniqueness (if being changed)
-  if (updates.invoiceNumber && updates.invoiceNumber !== current.invoiceNumber) {
-    const existing = await db.invoice.findUnique({
-      where: { invoiceNumber: updates.invoiceNumber },
-      select: { id: true },
-    })
-
-    if (existing) {
-      logger.warn(
-        { userId, invoiceId, newInvoiceNumber: updates.invoiceNumber, existingId: existing.id },
-        'Attempted to change invoiceNumber to existing value'
-      )
-      throw new ConflictError(`Ya existe una factura con el número ${updates.invoiceNumber}`)
-    }
-  }
-
-  // STEP 8: Prepare Update Data
+  // STEP 7: Prepare Update Data
   const updateData: Prisma.InvoiceUpdateInput = {
     ...updates,
     // Add comparison flags if validation was run
@@ -239,53 +221,41 @@ export async function updateInvoice(
     ...(amountMatchesFlag !== undefined && { amountMatches: amountMatchesFlag }),
   }
 
-  // STEP 9: Atomic Transaction - Update Invoice + Create Audit Log
-  try {
-    await db.$transaction(async (tx) => {
-      // Update the invoice
-      const invoice = await tx.invoice.update({
-        where: { id: invoiceId },
-        data: updateData,
-      })
-
-      // Create audit log entry
-      await tx.auditLog.create({
-        data: {
-          action: 'UPDATE',
-          resourceType: 'Invoice',
-          resourceId: invoice.id,
-          userId,
-          changes: {
-            before: current,
-            after: invoice,
-          },
-          metadata: {
-            role: roleName,
-            statusTransition: isTransitioning ? `${current.status} → ${updates.status}` : null,
-          },
-        },
-      })
-
-      return invoice
+  // STEP 8: Atomic Transaction - Update Invoice + Create Audit Log
+  await db.$transaction(async (tx) => {
+    // Update the invoice
+    const invoice = await tx.invoice.update({
+      where: { id: invoiceId },
+      data: updateData,
     })
-  } catch (err) {
-    // Handle race condition: invoiceNumber conflict
-    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-      const target = err.meta?.target as string[] | undefined
-      if (target?.includes('invoiceNumber')) {
-        throw new ConflictError(`Ya existe una factura con el número ${updates.invoiceNumber}`)
-      }
-    }
-    throw err
-  }
 
-  // STEP 10: Load Updated Invoice with Relations
+    // Create audit log entry
+    await tx.auditLog.create({
+      data: {
+        action: 'UPDATE',
+        resourceType: 'Invoice',
+        resourceId: invoice.id,
+        userId,
+        changes: {
+          before: current,
+          after: invoice,
+        },
+        metadata: {
+          role: roleName,
+          statusTransition: isTransitioning ? `${current.status} → ${updates.status}` : null,
+        },
+      },
+    })
+
+    return invoice
+  })
+
+  // STEP 9: Load Updated Invoice with Relations
   const invoice = await db.invoice.findUnique({
     where: { id: invoiceId },
     select: {
       id: true,
       invoiceNumber: true,
-      insurerInvoiceNumber: true,
       status: true,
       paymentStatus: true,
       billingPeriod: true,
@@ -297,11 +267,6 @@ export async function updateInvoice(
       expectedAmount: true,
       amountMatches: true,
       discrepancyNotes: true,
-      fileUrl: true,
-      fileName: true,
-      fileSize: true,
-      mimeType: true,
-      uploadedAt: true,
       issueDate: true,
       dueDate: true,
       paymentDate: true,
@@ -309,10 +274,8 @@ export async function updateInvoice(
       updatedAt: true,
       clientId: true,
       insurerId: true,
-      uploadedById: true,
       client: { select: { name: true } },
       insurer: { select: { name: true } },
-      uploadedBy: { select: { name: true } },
       policies: {
         select: {
           policyId: true,
@@ -331,11 +294,10 @@ export async function updateInvoice(
     throw new NotFoundError('Factura no encontrada después de actualizar')
   }
 
-  // STEP 11: Transform to Response DTO
+  // STEP 10: Transform to Response DTO
   const response: InvoiceUpdateResponse = {
     id: invoice.id,
     invoiceNumber: invoice.invoiceNumber,
-    insurerInvoiceNumber: invoice.insurerInvoiceNumber,
     status: invoice.status,
     paymentStatus: invoice.paymentStatus,
     billingPeriod: invoice.billingPeriod,
@@ -347,11 +309,6 @@ export async function updateInvoice(
     expectedAmount: invoice.expectedAmount,
     amountMatches: invoice.amountMatches,
     discrepancyNotes: invoice.discrepancyNotes,
-    fileUrl: invoice.fileUrl,
-    fileName: invoice.fileName,
-    fileSize: invoice.fileSize,
-    mimeType: invoice.mimeType,
-    uploadedAt: invoice.uploadedAt?.toISOString() ?? null,
     issueDate: invoice.issueDate.toISOString().split('T')[0],
     dueDate: invoice.dueDate?.toISOString().split('T')[0] ?? null,
     paymentDate: invoice.paymentDate?.toISOString().split('T')[0] ?? null,
@@ -361,8 +318,6 @@ export async function updateInvoice(
     clientName: invoice.client.name,
     insurerId: invoice.insurerId,
     insurerName: invoice.insurer.name,
-    uploadedById: invoice.uploadedById,
-    uploadedByName: invoice.uploadedBy?.name ?? null,
     policies: invoice.policies.map((ip) => ({
       policyId: ip.policyId,
       policyNumber: ip.policy.policyNumber,

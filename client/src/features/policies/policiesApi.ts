@@ -17,6 +17,10 @@ import type {
   UpdatePolicyRequest,
   UpdatePolicyResponse,
   GetPolicyAffiliatesResponse,
+  AddAffiliateToPolicyRequest,
+  AddAffiliateToPolicyResponse,
+  RemoveAffiliateFromPolicyRequest,
+  RemoveAffiliateFromPolicyResponse,
 } from './policies'
 
 /**
@@ -299,4 +303,73 @@ export async function getPolicyAffiliates(
   const qs = searchParams.toString()
   const endpoint = `/api/policies/${policyId}/affiliates${qs ? `?${qs}` : ''}`
   return fetchAPI<GetPolicyAffiliatesResponse>(endpoint, options)
+}
+
+/**
+ * Add a new affiliate to a policy
+ *
+ * Creates new affiliate and automatically adds them to the policy.
+ * Combines affiliate creation with policy enrollment in a single operation.
+ *
+ * @param policyId - Policy ID to add affiliate to (CUID)
+ * @param data - Affiliate data (must match policy's client)
+ * @param options - Optional RequestInit (e.g., signal for AbortController)
+ * @returns Created affiliate with policy relationship details
+ * @throws {ApiRequestError} If request fails (400, 403, 404)
+ *
+ * @example
+ * const affiliate = await addAffiliateToPolicy('policy-123', {
+ *   clientId: 'client-456',
+ *   firstName: 'John',
+ *   lastName: 'Doe',
+ *   affiliateType: 'OWNER',
+ *   email: 'john@example.com'
+ * })
+ * // Returns: { id: '...', firstName: 'John', policyId: 'policy-123', ... }
+ */
+export async function addAffiliateToPolicy(
+  policyId: string,
+  data: AddAffiliateToPolicyRequest,
+  options?: RequestInit
+): Promise<AddAffiliateToPolicyResponse> {
+  return fetchAPI<AddAffiliateToPolicyResponse>(`/api/policies/${policyId}/affiliates`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+    ...options,
+  })
+}
+
+/**
+ * Remove an affiliate from a policy (soft delete)
+ *
+ * Sets removedAt date and deactivates the relationship.
+ * For OWNER affiliates, cascades removal to all dependents on the policy.
+ *
+ * @param policyId - Policy ID (CUID)
+ * @param affiliateId - Affiliate ID to remove (CUID)
+ * @param data - Removal data (removedAt date)
+ * @param options - Optional RequestInit (e.g., signal for AbortController)
+ * @returns Confirmation with removed affiliate and cascaded dependents
+ * @throws {ApiRequestError} If request fails (400, 403, 404)
+ *
+ * @example
+ * const result = await removeAffiliateFromPolicy('policy-123', 'affiliate-456', {
+ *   removedAt: '2024-01-15'
+ * })
+ * // Returns: { policyId: '...', removedAffiliate: {...}, cascadedDependents: [...] }
+ */
+export async function removeAffiliateFromPolicy(
+  policyId: string,
+  affiliateId: string,
+  data: RemoveAffiliateFromPolicyRequest,
+  options?: RequestInit
+): Promise<RemoveAffiliateFromPolicyResponse> {
+  return fetchAPI<RemoveAffiliateFromPolicyResponse>(
+    `/api/policies/${policyId}/affiliates/${affiliateId}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+      ...options,
+    }
+  )
 }

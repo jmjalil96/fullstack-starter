@@ -292,8 +292,11 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(
         {isOpen &&
           !disabled &&
           createPortal(
+            // eslint-disable-next-line jsx-a11y/no-static-element-interactions
             <div
               ref={calendarRef}
+              data-date-picker-calendar
+              onMouseDown={(e) => e.stopPropagation()}
               style={{
                 position: 'absolute',
                 top: `${dropdownPos.top}px`,

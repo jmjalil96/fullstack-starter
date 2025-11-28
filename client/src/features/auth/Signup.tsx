@@ -43,7 +43,7 @@ export function Signup() {
 
   const onSubmit = async (data: SignupFormData) => {
     try {
-      await signUp(data.email, data.password, data.name)
+      await signUp(data.name, data.email, data.password)
       navigate('/dashboard')
     } catch (error) {
       console.error('Signup failed:', error)

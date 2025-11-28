@@ -1,20 +1,9 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
-import type { CreateAffiliateRequest, UpdateAffiliateRequest } from '../affiliates'
-import { createAffiliate, updateAffiliate } from '../affiliatesApi'
+import type { UpdateAffiliateRequest } from '../affiliates'
+import { updateAffiliate } from '../affiliatesApi'
 
 import { AFFILIATES_KEYS } from './useAffiliates'
-
-export function useCreateAffiliate() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: (data: CreateAffiliateRequest) => createAffiliate(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: AFFILIATES_KEYS.lists() })
-    },
-  })
-}
 
 export function useUpdateAffiliate() {
   const queryClient = useQueryClient()

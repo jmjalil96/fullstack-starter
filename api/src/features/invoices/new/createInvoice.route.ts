@@ -24,8 +24,7 @@ const router = Router()
  * - CLIENT_ADMIN and AFFILIATE: 403 Forbidden
  *
  * Request body:
- * - invoiceNumber (required): Our internal invoice number - must be unique
- * - insurerInvoiceNumber (required): Insurer's invoice reference number
+ * - invoiceNumber (required): Invoice number (insurer's reference)
  * - clientId (required): Client ID (company being billed)
  * - insurerId (required): Insurer ID (insurance carrier)
  * - billingPeriod (required): Billing period in YYYY-MM format
@@ -42,7 +41,6 @@ const router = Router()
  * - 401 Unauthorized: Not authenticated
  * - 403 Forbidden: Role not allowed
  * - 404 Not Found: Client, insurer, or policy not found
- * - 409 Conflict: invoiceNumber already exists
  */
 router.post(
   '/invoices',

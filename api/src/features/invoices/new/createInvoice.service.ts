@@ -7,13 +7,12 @@
 // IMPORTS
 // ============================================================================
 
-import { InvoiceStatus, PaymentStatus, Prisma } from '@prisma/client'
+import { InvoiceStatus, PaymentStatus } from '@prisma/client'
 
 import { db } from '../../../config/database.js'
 import { BROKER_EMPLOYEES } from '../../../shared/constants/roles.js'
 import {
   BadRequestError,
-  ConflictError,
   ForbiddenError,
   NotFoundError,
   UnauthorizedError,
@@ -45,7 +44,6 @@ interface UserContext {
  * - CLIENT_ADMIN and AFFILIATE cannot create invoices
  *
  * Validation:
- * - invoiceNumber must be unique (enforced by database constraint + race condition handling)
  * - Client and Insurer must exist and be active
  * - If policyIds provided, all policies must belong to the specified insurer
  * - All required fields validated by Zod schema
@@ -58,7 +56,6 @@ interface UserContext {
  * @throws {ForbiddenError} If user role not allowed
  * @throws {NotFoundError} If client, insurer, or policy not found
  * @throws {BadRequestError} If client/insurer inactive or policy insurer mismatch
- * @throws {ConflictError} If invoiceNumber already exists (pre-check or race condition)
  */
 export async function createInvoice(
   userId: string,
@@ -79,21 +76,7 @@ export async function createInvoice(
     throw new ForbiddenError('No tienes permiso para crear facturas')
   }
 
-  // STEP 3: Check invoiceNumber Uniqueness (pre-check to fail fast)
-  const existingInvoice = await db.invoice.findUnique({
-    where: { invoiceNumber: data.invoiceNumber },
-    select: { id: true, invoiceNumber: true },
-  })
-
-  if (existingInvoice) {
-    logger.warn(
-      { userId, invoiceNumber: data.invoiceNumber, existingInvoiceId: existingInvoice.id },
-      'Attempted to create invoice with duplicate invoiceNumber'
-    )
-    throw new ConflictError(`Ya existe una factura con el número ${data.invoiceNumber}`)
-  }
-
-  // STEP 4: Validate Client & Insurer Exist and Are Active
+  // STEP 3: Validate Client & Insurer Exist and Are Active
   const [client, insurer] = await Promise.all([
     db.client.findUnique({
       where: { id: data.clientId },
@@ -121,65 +104,44 @@ export async function createInvoice(
     throw new BadRequestError('Aseguradora inactiva')
   }
 
-  // STEP 5: Validate Policy-Insurer Match (if policyIds provided)
+  // STEP 4: Validate Policy-Insurer Match (if policyIds provided)
   if (data.policyIds && data.policyIds.length > 0) {
     await validatePolicyInsurerMatch(data.policyIds, data.insurerId, insurer.name)
   }
 
-  // STEP 6: Create Invoice (with race condition handling)
-  let invoice
-  try {
-    invoice = await db.invoice.create({
-      data: {
-        invoiceNumber: data.invoiceNumber,
-        insurerInvoiceNumber: data.insurerInvoiceNumber,
-        clientId: data.clientId,
-        insurerId: data.insurerId,
-        status: InvoiceStatus.PENDING,
-        paymentStatus: PaymentStatus.PENDING_PAYMENT,
-        billingPeriod: data.billingPeriod,
-        totalAmount: data.totalAmount,
-        taxAmount: data.taxAmount ?? null,
-        actualAffiliateCount: data.actualAffiliateCount,
-        // Validation fields - will be calculated later in edit/validation
-        expectedAmount: null,
-        expectedAffiliateCount: null,
-        countMatches: null,
-        amountMatches: null,
-        discrepancyNotes: null,
-        issueDate: data.issueDate,
-        dueDate: data.dueDate ?? null,
-        paymentDate: null,
-        uploadedById: userId,
+  // STEP 5: Create Invoice
+  const invoice = await db.invoice.create({
+    data: {
+      invoiceNumber: data.invoiceNumber,
+      clientId: data.clientId,
+      insurerId: data.insurerId,
+      status: InvoiceStatus.PENDING,
+      paymentStatus: PaymentStatus.PENDING_PAYMENT,
+      billingPeriod: data.billingPeriod,
+      totalAmount: data.totalAmount,
+      taxAmount: data.taxAmount ?? null,
+      actualAffiliateCount: data.actualAffiliateCount,
+      // Validation fields - will be calculated later in edit/validation
+      expectedAmount: null,
+      expectedAffiliateCount: null,
+      countMatches: null,
+      amountMatches: null,
+      discrepancyNotes: null,
+      issueDate: data.issueDate,
+      dueDate: data.dueDate ?? null,
+      paymentDate: null,
+    },
+    include: {
+      client: {
+        select: { name: true },
       },
-      include: {
-        client: {
-          select: { name: true },
-        },
-        insurer: {
-          select: { name: true },
-        },
+      insurer: {
+        select: { name: true },
       },
-    })
-  } catch (err) {
-    // Handle race condition: another request created invoice with same invoiceNumber
-    if (err instanceof Prisma.PrismaClientKnownRequestError) {
-      if (err.code === 'P2002') {
-        const target = err.meta?.target as string[] | undefined
-        if (target && target.includes('invoiceNumber')) {
-          logger.warn(
-            { userId, invoiceNumber: data.invoiceNumber, error: err.code },
-            'Race condition: duplicate invoiceNumber detected at database level'
-          )
-          throw new ConflictError(`Ya existe una factura con el número ${data.invoiceNumber}`)
-        }
-      }
-    }
-    // Re-throw unexpected errors
-    throw err
-  }
+    },
+  })
 
-  // STEP 7: Create InvoicePolicy Records (if policyIds provided)
+  // STEP 6: Create InvoicePolicy Records (if policyIds provided)
   if (data.policyIds && data.policyIds.length > 0) {
     await Promise.all(
       data.policyIds.map((policyId) =>
@@ -197,7 +159,7 @@ export async function createInvoice(
     )
   }
 
-  // STEP 8: Log Activity
+  // STEP 7: Log Activity
   logger.info(
     {
       userId,
@@ -210,11 +172,10 @@ export async function createInvoice(
     'Invoice created'
   )
 
-  // STEP 9: Transform to Response DTO
+  // STEP 8: Transform to Response DTO
   const response: CreateInvoiceResponse = {
     id: invoice.id,
     invoiceNumber: invoice.invoiceNumber,
-    insurerInvoiceNumber: invoice.insurerInvoiceNumber,
     status: invoice.status as CreateInvoiceResponse['status'],
     paymentStatus: invoice.paymentStatus as CreateInvoiceResponse['paymentStatus'],
     clientId: invoice.clientId,

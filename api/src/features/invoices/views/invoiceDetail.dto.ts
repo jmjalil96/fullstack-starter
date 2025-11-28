@@ -42,11 +42,8 @@ export interface InvoiceDetailResponse {
   /** Unique invoice ID (CUID) */
   id: string
 
-  /** Internal invoice number (unique business identifier) */
+  /** Invoice number (insurer's reference) */
   invoiceNumber: string
-
-  /** Insurer's invoice number (their reference) */
-  insurerInvoiceNumber: string
 
   /** Validation status (PENDING, VALIDATED, DISCREPANCY, CANCELLED) */
   status: InvoiceStatus
@@ -84,22 +81,6 @@ export interface InvoiceDetailResponse {
   /** Notes about discrepancies */
   discrepancyNotes: string | null
 
-  // File attachments (optional - S3 integration not yet implemented)
-  /** URL to invoice file (e.g., PDF from S3) */
-  fileUrl: string | null
-
-  /** Original file name */
-  fileName: string | null
-
-  /** File size in bytes */
-  fileSize: number | null
-
-  /** MIME type (e.g., "application/pdf") */
-  mimeType: string | null
-
-  /** When the file was uploaded (ISO timestamp) */
-  uploadedAt: string | null
-
   // Dates
   /** Invoice issue date (YYYY-MM-DD) */
   issueDate: string
@@ -131,12 +112,6 @@ export interface InvoiceDetailResponse {
 
   /** Insurer name for display */
   insurerName: string
-
-  /** ID of user who uploaded the invoice */
-  uploadedById: string | null
-
-  /** Name of user who uploaded the invoice */
-  uploadedByName: string | null
 
   // ============================================================================
   // ASSOCIATED POLICIES (NESTED ARRAY)

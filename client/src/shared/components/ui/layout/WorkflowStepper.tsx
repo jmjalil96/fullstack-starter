@@ -56,12 +56,14 @@ export function WorkflowStepper<TStatus extends string = PolicyStatus>({
   // Helper to map lifecycle colors to Tailwind gradient classes
   const getStatusBadgeStyles = (color: string) => {
     const map: Record<string, string> = {
-      blue: 'from-blue-400 to-blue-500 shadow-blue-400/30',
-      yellow: 'from-amber-400 to-orange-400 shadow-amber-400/30',
-      green: 'from-emerald-400 to-teal-500 shadow-emerald-400/30',
-      orange: 'from-orange-400 to-red-400 shadow-orange-400/30',
-      red: 'from-rose-500 to-pink-600 shadow-rose-500/30',
       gray: 'from-slate-400 to-slate-500 shadow-slate-400/30',
+      blue: 'from-blue-400 to-blue-500 shadow-blue-400/30',
+      cyan: 'from-cyan-400 to-cyan-500 shadow-cyan-400/30',
+      yellow: 'from-amber-400 to-orange-400 shadow-amber-400/30',
+      purple: 'from-purple-400 to-purple-500 shadow-purple-400/30',
+      orange: 'from-orange-400 to-red-400 shadow-orange-400/30',
+      green: 'from-emerald-400 to-teal-500 shadow-emerald-400/30',
+      red: 'from-rose-500 to-pink-600 shadow-rose-500/30',
     }
     return map[color] || map.gray
   }
@@ -103,24 +105,39 @@ export function WorkflowStepper<TStatus extends string = PolicyStatus>({
     }
 
     if (lifecycle === 'claim') {
-      // Claims: SUBMITTED -> UNDER_REVIEW -> APPROVED/REJECTED
-      const isTerminal = ['APPROVED', 'REJECTED'].includes(currentStatus)
+      // Claims: DRAFT -> VALIDATION -> SUBMITTED -> SETTLED (with PENDING_INFO loop, RETURNED/CANCELLED alternatives)
+      const isTerminal = ['RETURNED', 'SETTLED', 'CANCELLED'].includes(currentStatus)
+      const isPendingInfo = currentStatus === 'PENDING_INFO'
+      const isSubmitted = currentStatus === 'SUBMITTED'
+      const isValidation = currentStatus === 'VALIDATION'
+      const isDraft = currentStatus === 'DRAFT'
+
+      // Step progression: DRAFT(0) -> VALIDATION(1) -> SUBMITTED(2) -> terminal(3)
+      // PENDING_INFO is a special loop state from SUBMITTED
+      const stepIndex = isDraft ? 0 : isValidation ? 1 : isSubmitted || isPendingInfo ? 2 : 3
+
       return [
         {
-          id: 'SUBMITTED',
-          label: CLAIM_LIFECYCLE.SUBMITTED.label,
-          active: currentStatus === 'SUBMITTED',
-          done: currentStatus !== 'SUBMITTED',
+          id: 'DRAFT',
+          label: CLAIM_LIFECYCLE.DRAFT.label,
+          active: isDraft,
+          done: stepIndex > 0,
         },
         {
-          id: 'UNDER_REVIEW',
-          label: CLAIM_LIFECYCLE.UNDER_REVIEW.label,
-          active: currentStatus === 'UNDER_REVIEW',
+          id: 'VALIDATION',
+          label: CLAIM_LIFECYCLE.VALIDATION.label,
+          active: isValidation,
+          done: stepIndex > 1,
+        },
+        {
+          id: 'SUBMITTED',
+          label: isPendingInfo ? CLAIM_LIFECYCLE.PENDING_INFO.label : CLAIM_LIFECYCLE.SUBMITTED.label,
+          active: isSubmitted || isPendingInfo,
           done: isTerminal,
         },
         {
           id: 'TERMINAL',
-          label: isTerminal ? CLAIM_LIFECYCLE[currentStatus as ClaimStatus].label : 'Resuelto',
+          label: isTerminal ? CLAIM_LIFECYCLE[currentStatus as ClaimStatus].label : 'Finalizado',
           active: isTerminal,
           done: false,
         },

@@ -27,6 +27,19 @@ const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d{3})?Z?)?$/
 const BILLING_PERIOD_REGEX = /^\d{4}-\d{2}$/
 
 /**
+ * Optional date schema that allows empty strings or valid ISO dates
+ * Used for date fields that support clearing
+ */
+const optionalDateSchema = z
+  .union([
+    z
+      .string({ message: 'La fecha debe ser texto' })
+      .regex(ISO_DATE_REGEX, 'Formato de fecha inválido (use YYYY-MM-DD)'),
+    z.literal(''),
+  ])
+  .optional()
+
+/**
  * Invoice update validation schema
  *
  * All fields optional (partial update pattern).
@@ -35,18 +48,12 @@ const BILLING_PERIOD_REGEX = /^\d{4}-\d{2}$/
  */
 export const invoiceUpdateSchema = z
   .object({
-    /** Invoice number (internal tracking) */
+    /** Invoice number (insurer's reference) */
     invoiceNumber: z
       .string({ message: 'El número de factura debe ser texto' })
       .trim()
       .min(1, 'El número de factura es requerido')
-      .optional(),
-
-    /** Insurer's invoice number (from PDF/document) */
-    insurerInvoiceNumber: z
-      .string({ message: 'El número de aseguradora debe ser texto' })
-      .trim()
-      .min(1, 'El número de aseguradora es requerido')
+      .max(100, 'El número de factura no puede exceder 100 caracteres')
       .optional(),
 
     /** Client ID (CUID) */
@@ -77,22 +84,13 @@ export const invoiceUpdateSchema = z
       .optional(),
 
     /** Issue date (ISO 8601 date string) */
-    issueDate: z
-      .string({ message: 'La fecha de emisión debe ser texto' })
-      .regex(ISO_DATE_REGEX, 'Formato de fecha inválido (use YYYY-MM-DD)')
-      .optional(),
+    issueDate: optionalDateSchema,
 
     /** Due date (ISO 8601 date string, nullable) */
-    dueDate: z
-      .string({ message: 'La fecha de vencimiento debe ser texto' })
-      .regex(ISO_DATE_REGEX, 'Formato de fecha inválido (use YYYY-MM-DD)')
-      .optional(),
+    dueDate: optionalDateSchema,
 
     /** Payment date (ISO 8601 date string, nullable) */
-    paymentDate: z
-      .string({ message: 'La fecha de pago debe ser texto' })
-      .regex(ISO_DATE_REGEX, 'Formato de fecha inválido (use YYYY-MM-DD)')
-      .optional(),
+    paymentDate: optionalDateSchema,
 
     /** Payment status */
     paymentStatus: z

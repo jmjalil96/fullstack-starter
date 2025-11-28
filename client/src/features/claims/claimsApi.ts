@@ -158,6 +158,9 @@ export async function getClaims(
     status?: ClaimStatus
     clientId?: string
     search?: string
+    dateField?: string
+    dateFrom?: string
+    dateTo?: string
     page?: number
     limit?: number
   },
@@ -174,6 +177,15 @@ export async function getClaims(
   }
   if (params?.search) {
     searchParams.append('search', params.search)
+  }
+  if (params?.dateField) {
+    searchParams.append('dateField', params.dateField)
+  }
+  if (params?.dateFrom) {
+    searchParams.append('dateFrom', params.dateFrom)
+  }
+  if (params?.dateTo) {
+    searchParams.append('dateTo', params.dateTo)
   }
   if (params?.page !== undefined) {
     searchParams.append('page', params.page.toString())
@@ -230,16 +242,16 @@ export async function getClaimById(
  *
  * @example
  * // Status transition
- * const updated = await updateClaim('claim-123', { status: 'UNDER_REVIEW' })
+ * const updated = await updateClaim('claim-123', { status: 'VALIDATION' })
  *
  * @example
  * // Clear optional field
- * const updated = await updateClaim('claim-123', { type: null })
+ * const updated = await updateClaim('claim-123', { careType: null })
  *
  * @example
  * // With AbortController
  * const controller = new AbortController()
- * const updated = await updateClaim('claim-123', { amount: 100 }, { signal: controller.signal })
+ * const updated = await updateClaim('claim-123', { amountSubmitted: 100 }, { signal: controller.signal })
  */
 export async function updateClaim(
   claimId: string,

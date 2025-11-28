@@ -8,6 +8,13 @@ import { DateInput } from '../../../shared/components/ui/forms/DateInput'
 import { Input } from '../../../shared/components/ui/forms/Input'
 import { SearchableSelect } from '../../../shared/components/ui/forms/SearchableSelect'
 import { Textarea } from '../../../shared/components/ui/forms/Textarea'
+import { CARE_TYPE_LABELS } from '../claimLifecycle'
+
+// Care type options for select
+const CARE_TYPE_OPTIONS = Object.entries(CARE_TYPE_LABELS).map(([value, label]) => ({
+  value,
+  label,
+}))
 
 interface ClaimFormProps {
   id?: string
@@ -53,12 +60,73 @@ export function ClaimForm({
             />
           </DataGrid>
           <DataGrid columns={2}>
+            <Controller
+              name="careType"
+              control={control}
+              render={({ field, fieldState }) => (
+                <SearchableSelect
+                  label="Tipo de Atención"
+                  options={CARE_TYPE_OPTIONS}
+                  value={field.value || ''}
+                  onChange={field.onChange}
+                  placeholder="Seleccionar tipo..."
+                  error={fieldState.error}
+                />
+              )}
+            />
+            <Controller
+              name="incidentDate"
+              control={control}
+              render={({ field, fieldState }) => (
+                <DateInput
+                  label="Fecha de Incurrencia"
+                  variant="light"
+                  error={fieldState.error}
+                  {...field}
+                />
+              )}
+            />
+          </DataGrid>
+          <DataGrid columns={2}>
+            <Controller
+              name="submittedDate"
+              control={control}
+              render={({ field, fieldState }) => (
+                <DateInput
+                  label="Fecha de Presentación"
+                  variant="light"
+                  error={fieldState.error}
+                  {...field}
+                />
+              )}
+            />
+            <Controller
+              name="policyId"
+              control={control}
+              render={({ field, fieldState }) => (
+                <SearchableSelect
+                  label="Póliza"
+                  options={policyOptions}
+                  value={field.value || ''}
+                  onChange={field.onChange}
+                  placeholder="Seleccionar póliza..."
+                  error={fieldState.error}
+                />
+              )}
+            />
+          </DataGrid>
+        </div>
+      </DetailSection>
+
+      {/* Section 2: Diagnóstico */}
+      <DetailSection title="Diagnóstico">
+        <DataGrid columns={2}>
           <Controller
-            name="type"
+            name="diagnosisCode"
             control={control}
             render={({ field, fieldState }) => (
               <Input
-                label="Tipo de Reclamo"
+                label="Código Diagnóstico (CIE-10)"
                 variant="light"
                 error={fieldState.error}
                 {...field}
@@ -67,64 +135,85 @@ export function ClaimForm({
             )}
           />
           <Controller
-            name="incidentDate"
+            name="diagnosisDescription"
             control={control}
             render={({ field, fieldState }) => (
-              <DateInput
-                label="Fecha del Incidente"
+              <Input
+                label="Descripción del Diagnóstico"
                 variant="light"
                 error={fieldState.error}
                 {...field}
+                value={field.value || ''}
+              />
+            )}
+          />
+        </DataGrid>
+      </DetailSection>
+
+      {/* Section 3: Montos */}
+      <DetailSection title="Montos">
+        <DataGrid columns={2}>
+          <Controller
+            name="amountSubmitted"
+            control={control}
+            render={({ field, fieldState }) => (
+              <CurrencyInput
+                label="Monto Presentado"
+                variant="light"
+                error={fieldState.error}
+                {...field}
+              />
+            )}
+          />
+          <Controller
+            name="businessDays"
+            control={control}
+            render={({ field, fieldState }) => (
+              <Input
+                label="Días Laborables"
+                type="number"
+                variant="light"
+                error={fieldState.error}
+                {...field}
+                value={field.value || ''}
+              />
+            )}
+          />
+        </DataGrid>
+      </DetailSection>
+
+      {/* Section 4: Liquidación */}
+      <DetailSection title="Liquidación">
+        <DataGrid columns={2}>
+          <Controller
+            name="settlementDate"
+            control={control}
+            render={({ field, fieldState }) => (
+              <DateInput
+                label="Fecha de Liquidación"
+                variant="light"
+                error={fieldState.error}
+                {...field}
+              />
+            )}
+          />
+          <Controller
+            name="settlementNumber"
+            control={control}
+            render={({ field, fieldState }) => (
+              <Input
+                label="Número de Liquidación"
+                variant="light"
+                error={fieldState.error}
+                {...field}
+                value={field.value || ''}
               />
             )}
           />
         </DataGrid>
         <DataGrid columns={2}>
           <Controller
-            name="submittedDate"
-            control={control}
-            render={({ field, fieldState }) => (
-              <DateInput
-                label="Fecha de Envío"
-                variant="light"
-                error={fieldState.error}
-                {...field}
-              />
-            )}
-          />
-          <Controller
-            name="resolvedDate"
-            control={control}
-            render={({ field, fieldState }) => (
-              <DateInput
-                label="Fecha de Resolución"
-                variant="light"
-                error={fieldState.error}
-                {...field}
-              />
-            )}
-          />
-        </DataGrid>
-        </div>
-      </DetailSection>
-
-      {/* Section 2: Montos y Póliza */}
-      <DetailSection title="Montos y Póliza">
-        <DataGrid columns={3}>
-          <Controller
-            name="amount"
-            control={control}
-            render={({ field, fieldState }) => (
-              <CurrencyInput
-                label="Monto Reclamado"
-                variant="light"
-                error={fieldState.error}
-                {...field}
-              />
-            )}
-          />
-          <Controller
-            name="approvedAmount"
+            name="amountApproved"
             control={control}
             render={({ field, fieldState }) => (
               <CurrencyInput
@@ -136,23 +225,74 @@ export function ClaimForm({
             )}
           />
           <Controller
-            name="policyId"
+            name="amountDenied"
             control={control}
             render={({ field, fieldState }) => (
-              <SearchableSelect
-                label="Póliza"
-                options={policyOptions}
-                value={field.value || ''}
-                onChange={field.onChange}
-                placeholder="Seleccionar póliza..."
+              <CurrencyInput
+                label="Gastos No Elegibles"
+                variant="light"
                 error={fieldState.error}
+                {...field}
+              />
+            )}
+          />
+        </DataGrid>
+        <DataGrid columns={2}>
+          <Controller
+            name="amountUnprocessed"
+            control={control}
+            render={({ field, fieldState }) => (
+              <CurrencyInput
+                label="Gastos No Procesados"
+                variant="light"
+                error={fieldState.error}
+                {...field}
+              />
+            )}
+          />
+          <Controller
+            name="deductibleApplied"
+            control={control}
+            render={({ field, fieldState }) => (
+              <CurrencyInput
+                label="Deducible Aplicado"
+                variant="light"
+                error={fieldState.error}
+                {...field}
+              />
+            )}
+          />
+        </DataGrid>
+        <DataGrid columns={2}>
+          <Controller
+            name="copayApplied"
+            control={control}
+            render={({ field, fieldState }) => (
+              <CurrencyInput
+                label="Copago"
+                variant="light"
+                error={fieldState.error}
+                {...field}
+              />
+            )}
+          />
+          <Controller
+            name="settlementNotes"
+            control={control}
+            render={({ field, fieldState }) => (
+              <Input
+                label="Observaciones"
+                variant="light"
+                error={fieldState.error}
+                {...field}
+                value={field.value || ''}
               />
             )}
           />
         </DataGrid>
       </DetailSection>
 
-      {/* Section 3: Partes Involucradas (Read-only) */}
+      {/* Section 5: Partes Involucradas (Read-only) */}
       <DetailSection title="Partes Involucradas">
         <DataGrid columns={3}>
           <div>
