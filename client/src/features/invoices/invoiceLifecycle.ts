@@ -8,7 +8,7 @@
 
 import type { InvoiceStatus } from './invoices'
 
-export type TransitionVariant = 'primary' | 'secondary' | 'success' | 'danger' | 'ghost'
+export type TransitionVariant = 'action' | 'success' | 'danger'
 
 export interface Transition {
   status: InvoiceStatus
@@ -57,7 +57,7 @@ export const INVOICE_LIFECYCLE: Record<InvoiceStatus, LifecycleState> = {
         status: 'DISCREPANCY',
         label: 'Marcar Discrepancia',
         buttonLabel: 'Marcar Discrepancia',
-        variant: 'secondary',
+        variant: 'action',
         icon: '⚠',
       },
       {
@@ -85,7 +85,7 @@ export const INVOICE_LIFECYCLE: Record<InvoiceStatus, LifecycleState> = {
         status: 'DISCREPANCY',
         label: 'Marcar Discrepancia',
         buttonLabel: 'Marcar Discrepancia',
-        variant: 'secondary',
+        variant: 'action',
         icon: '⚠',
       },
       {

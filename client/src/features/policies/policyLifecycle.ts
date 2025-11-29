@@ -29,7 +29,7 @@ import type { PolicyStatus } from './policies'
  * Button variant for transition actions
  * Must match Button component API
  */
-export type TransitionVariant = 'primary' | 'success' | 'danger'
+export type TransitionVariant = 'action' | 'success' | 'danger'
 
 /**
  * Status transition configuration

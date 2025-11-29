@@ -13,9 +13,11 @@ import viewAffiliatesRouter from './features/affiliates/views/viewAffiliates.rou
 import editAgentRouter from './features/agents/edit/editAgent.route.js'
 import viewAgentsRouter from './features/agents/views/viewAgents.route.js'
 import improveTextRouter from './features/ai/improve/improveText.route.js'
+import claimAuditLogsRouter from './features/claims/audit-logs/auditLogs.route.js'
 import claimEditRouter from './features/claims/edit/claimEdit.route.js'
 import claimFilesRouter from './features/claims/files/claimFiles.route.js'
 import addClaimInvoiceRouter from './features/claims/invoices/addClaimInvoice.route.js'
+import editClaimInvoiceRouter from './features/claims/invoices/editClaimInvoice.route.js'
 import removeClaimInvoiceRouter from './features/claims/invoices/removeClaimInvoice.route.js'
 import availableAffiliatesForClaimsRouter from './features/claims/lookups/affiliates.route.js'
 import availableClientsForClaimsRouter from './features/claims/lookups/clients.route.js'
@@ -107,7 +109,9 @@ app.use('/api', viewClaimsRouter)
 app.use('/api', claimEditRouter)
 app.use('/api', claimFilesRouter)
 app.use('/api', addClaimInvoiceRouter)
+app.use('/api', editClaimInvoiceRouter)
 app.use('/api', removeClaimInvoiceRouter)
+app.use('/api', claimAuditLogsRouter)
 app.use('/api', availablePoliciesRouter)
 app.use('/api', availableClientsForAffiliatesRouter)
 app.use('/api', availableOwnersRouter)

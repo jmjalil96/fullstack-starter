@@ -1,8 +1,8 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react'
+import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react'
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   /** Visual style variant */
-  variant?: 'primary' | 'glass' | 'outline' | 'success' | 'danger'
+  variant?: 'primary' | 'glass' | 'outline' | 'success' | 'danger' | 'action'
 
   /** Size variant */
   size?: 'sm' | 'md' | 'lg'
@@ -20,17 +20,20 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode
 }
 
-export function Button({
-  variant = 'primary',
-  size = 'md',
-  isLoading,
-  loadingText = 'Procesando...',
-  fullWidth = false,
-  children,
-  className = '',
-  disabled,
-  ...props
-}: ButtonProps) {
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
+  {
+    variant = 'primary',
+    size = 'md',
+    isLoading,
+    loadingText = 'Procesando...',
+    fullWidth = false,
+    children,
+    className = '',
+    disabled,
+    ...props
+  },
+  ref
+) {
   const baseStyles =
     'text-sm font-bold rounded-xl transition-all transform active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2'
 
@@ -50,10 +53,13 @@ export function Button({
       'bg-emerald-50 border border-emerald-200 text-emerald-600 hover:bg-emerald-100',
     danger:
       'bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100',
+    action:
+      'bg-blue-50 border border-blue-200 text-blue-600 hover:bg-blue-100',
   }
 
   return (
     <button
+      ref={ref}
       className={`${baseStyles} ${sizeStyles[size]} ${variants[variant]} ${fullWidth ? 'w-full' : ''} ${className}`}
       disabled={isLoading || disabled}
       {...props}
@@ -87,4 +93,4 @@ export function Button({
       )}
     </button>
   )
-}
+})

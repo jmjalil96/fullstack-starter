@@ -10,6 +10,7 @@ import type {
   AvailableClientResponse,
   AvailablePatientResponse,
   AvailablePolicyResponse,
+  ClaimAuditLogsResponse,
   ClaimDetailResponse,
   ClaimStatus,
   ClaimUpdateRequest,
@@ -301,4 +302,49 @@ export async function getAvailablePolicies(
     `/api/claims/${claimId}/available-policies`,
     options
   )
+}
+
+/**
+ * Get audit logs for a claim
+ *
+ * Returns chronological history of all changes made to the claim,
+ * including invoice additions/removals and status transitions.
+ *
+ * @param claimId - Claim ID to fetch audit logs for
+ * @param params - Optional pagination parameters
+ * @param options - Optional RequestInit options (e.g., signal for AbortController)
+ * @returns Paginated list of audit log entries
+ * @throws {ApiRequestError} If request fails
+ *
+ * @example
+ * const logs = await getClaimAuditLogs('claim-123')
+ * // Returns: { items: [...], pagination: { total, page, limit, totalPages, hasMore } }
+ *
+ * @example
+ * // With pagination
+ * const logs = await getClaimAuditLogs('claim-123', { page: 2, limit: 20 })
+ *
+ * @example
+ * // With AbortController
+ * const controller = new AbortController()
+ * const logs = await getClaimAuditLogs('claim-123', {}, { signal: controller.signal })
+ */
+export async function getClaimAuditLogs(
+  claimId: string,
+  params?: { page?: number; limit?: number },
+  options?: RequestInit
+): Promise<ClaimAuditLogsResponse> {
+  const searchParams = new URLSearchParams()
+
+  if (params?.page !== undefined) {
+    searchParams.append('page', params.page.toString())
+  }
+  if (params?.limit !== undefined) {
+    searchParams.append('limit', params.limit.toString())
+  }
+
+  const queryString = searchParams.toString()
+  const endpoint = `/api/claims/${claimId}/audit-logs${queryString ? `?${queryString}` : ''}`
+
+  return fetchAPI<ClaimAuditLogsResponse>(endpoint, options)
 }

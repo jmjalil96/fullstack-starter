@@ -433,3 +433,96 @@ export interface ClaimUpdateRequest {
   // Status transition
   status?: ClaimStatus
 }
+
+// ============================================================================
+// CLAIM INVOICE CRUD
+// ============================================================================
+
+/**
+ * Request body for adding an invoice to a claim
+ * Sent to POST /api/claims/:claimId/invoices
+ */
+export interface AddClaimInvoiceRequest {
+  invoiceNumber: string
+  providerName: string
+  amountSubmitted: number
+}
+
+/**
+ * Request body for editing a claim invoice
+ * Sent to PATCH /api/claims/:claimId/invoices/:invoiceId
+ * All fields optional (partial update)
+ */
+export interface EditClaimInvoiceRequest {
+  invoiceNumber?: string
+  providerName?: string
+  amountSubmitted?: number
+}
+
+/**
+ * Response from claim invoice operations (add/edit)
+ */
+export interface ClaimInvoiceResponse {
+  id: string
+  claimId: string
+  invoiceNumber: string
+  providerName: string
+  amountSubmitted: number
+  createdById: string
+  createdByName: string
+  createdAt: string
+}
+
+/**
+ * Response from delete claim invoice operation
+ */
+export interface RemoveClaimInvoiceResponse {
+  success: boolean
+  message: string
+}
+
+// ============================================================================
+// AUDIT LOGS
+// ============================================================================
+
+/**
+ * Individual field change within an audit log entry
+ */
+export interface AuditLogChange {
+  /** Field key */
+  field: string
+  /** Spanish label for display */
+  fieldLabel: string
+  /** Previous value (formatted) */
+  oldValue: string | null
+  /** New value (formatted) */
+  newValue: string | null
+}
+
+/**
+ * Single audit log entry
+ */
+export interface ClaimAuditLogItem {
+  /** Unique audit log ID */
+  id: string
+  /** Action type (e.g., 'CLAIM_UPDATED') */
+  action: string
+  /** Spanish action label (e.g., 'Reclamo actualizado') */
+  actionLabel: string
+  /** Name of user who performed the action */
+  userName: string | null
+  /** List of individual field changes */
+  changes: AuditLogChange[]
+  /** Additional metadata */
+  metadata: Record<string, unknown> | null
+  /** ISO timestamp when action occurred */
+  createdAt: string
+}
+
+/**
+ * Response from GET /api/claims/:id/audit-logs
+ */
+export interface ClaimAuditLogsResponse {
+  items: ClaimAuditLogItem[]
+  pagination: PaginationMetadata
+}

@@ -7,6 +7,8 @@
 // IMPORTS
 // ============================================================================
 
+import type { Request } from 'express'
+
 import { db } from '../../../config/database.js'
 import { ALL_AUTHORIZED_ROLES } from '../../../shared/constants/roles.js'
 import {
@@ -16,6 +18,7 @@ import {
   UnauthorizedError,
 } from '../../../shared/errors/errors.js'
 import { logger } from '../../../shared/middleware/logger.js'
+import { AuditService, extractAuditContext } from '../../../shared/services/audit.service.js'
 import { generateClaimNumber } from '../shared/claimNumber.utils.js'
 
 import type { CreateClaimRequest, CreateClaimResponse } from './newClaim.dto.js'
@@ -44,6 +47,7 @@ interface UserContext {
  * @returns Created claim with relations
  */
 export async function createClaim(
+  req: Request,
   userId: string,
   data: CreateClaimRequest
 ): Promise<CreateClaimResponse> {
@@ -280,6 +284,22 @@ export async function createClaim(
         'Pending files attached to claim'
       )
     }
+
+    // Create audit log for claim creation
+    const ctx = extractAuditContext(req, userId, data.clientId, roleName as string)
+    await AuditService.claimCreated(tx, ctx, {
+      claimId: createdClaim.id,
+      claimNumber,
+      claimData: {
+        clientId: data.clientId,
+        affiliateId: data.affiliateId,
+        patientId: data.patientId,
+        description: data.description ?? null,
+        careType: data.careType ?? null,
+        amountSubmitted: data.amountSubmitted ?? null,
+      },
+      filesAttached: data.pendingFiles?.length ?? 0,
+    })
 
     return createdClaim
   })

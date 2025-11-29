@@ -43,7 +43,7 @@ router.post(
     const { claimId } = req.params
     const data = req.body
 
-    const invoice = await addClaimInvoice(userId, claimId, data)
+    const invoice = await addClaimInvoice(req, userId, claimId, data)
 
     res.status(201).json(invoice)
   })

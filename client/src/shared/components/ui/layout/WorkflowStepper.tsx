@@ -1,4 +1,5 @@
-import { useMemo } from 'react'
+import { useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 import { CLAIM_LIFECYCLE } from '../../../../features/claims/claimLifecycle'
 import type { ClaimStatus } from '../../../../features/claims/claims'
@@ -45,6 +46,21 @@ export function WorkflowStepper<TStatus extends string = PolicyStatus>({
   className = '',
   lifecycle = 'policy',
 }: WorkflowStepperProps<TStatus>) {
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, right: 0 })
+  const buttonRef = useRef<HTMLButtonElement>(null)
+
+  const handleToggleDropdown = () => {
+    if (!dropdownOpen && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect()
+      setDropdownPosition({
+        top: rect.bottom + 4,
+        right: window.innerWidth - rect.right,
+      })
+    }
+    setDropdownOpen(!dropdownOpen)
+  }
+
   // Get configuration for the current status based on lifecycle type
   const statusConfig =
     lifecycle === 'invoice'
@@ -69,10 +85,11 @@ export function WorkflowStepper<TStatus extends string = PolicyStatus>({
   }
 
   // Helper to get button variant based on transition type
-  const getButtonVariant = (transitionVariant: string): 'primary' | 'outline' | 'success' | 'danger' => {
+  const getButtonVariant = (transitionVariant: string): 'primary' | 'outline' | 'success' | 'danger' | 'action' => {
     if (transitionVariant === 'success') return 'success'
     if (transitionVariant === 'danger') return 'danger'
     if (transitionVariant === 'primary') return 'primary'
+    if (transitionVariant === 'action') return 'action'
     return 'outline'
   }
 
@@ -196,21 +213,22 @@ export function WorkflowStepper<TStatus extends string = PolicyStatus>({
           {statusConfig.label}
         </div>
 
-        {/* Mini Visual Stepper (Hidden on small screens) */}
-        <div className="hidden lg:flex items-center gap-2 text-xs font-medium text-slate-400" role="list">
+        {/* Compact Dot Stepper (visible from sm breakpoint) */}
+        <div className="hidden sm:flex items-center gap-1.5" role="list" aria-label="Progreso">
           {steps.map((step, idx) => (
-            <div key={step.id} className="flex items-center gap-2" role="listitem">
-              {idx > 0 && <div className="h-px w-4 bg-slate-200" aria-hidden="true" />}
-              <span
+            <div key={step.id} className="flex items-center gap-1.5" role="listitem">
+              {idx > 0 && <div className="w-3 h-px bg-slate-300" aria-hidden="true" />}
+              <div
                 aria-current={step.active ? 'step' : undefined}
+                aria-label={step.label}
+                title={step.label}
                 className={`
-                transition-colors duration-300
-                ${step.active ? 'text-slate-800 font-bold' : ''}
-                ${step.done ? 'text-slate-500' : ''}
-              `}
-              >
-                {step.label}
-              </span>
+                  w-2.5 h-2.5 rounded-full transition-all duration-300
+                  ${step.active ? 'scale-125 ring-2 ring-offset-1 ring-current' : ''}
+                  ${step.done ? 'bg-slate-400' : step.active ? '' : 'bg-slate-200'}
+                `}
+                style={step.active ? { backgroundColor: `var(--tw-gradient-from)` } : undefined}
+              />
             </div>
           ))}
         </div>
@@ -219,17 +237,90 @@ export function WorkflowStepper<TStatus extends string = PolicyStatus>({
       {/* RIGHT: Transitions / Actions */}
       <div className="flex items-center gap-2 w-full md:w-auto justify-end border-t md:border-t-0 border-slate-100 pt-3 md:pt-0">
         {statusConfig.transitions.length > 0 ? (
-          statusConfig.transitions.map((transition) => (
-            <Button
-              key={transition.status}
-              variant={getButtonVariant(transition.variant)}
-              size="sm"
-              onClick={() => onActionClick(transition.status as TStatus)}
-            >
-              <span className="mr-1.5 opacity-70">{transition.icon}</span>
-              {transition.label}
-            </Button>
-          ))
+          <>
+            {/* Desktop: Show all buttons */}
+            <div className="hidden md:flex items-center gap-2">
+              {statusConfig.transitions.map((transition) => (
+                <Button
+                  key={transition.status}
+                  variant={getButtonVariant(transition.variant)}
+                  size="sm"
+                  onClick={() => onActionClick(transition.status as TStatus)}
+                >
+                  {transition.label}
+                </Button>
+              ))}
+            </div>
+
+            {/* Mobile: Primary action + dropdown for secondary */}
+            <div className="flex md:hidden items-center gap-2 w-full">
+              {/* Primary action button */}
+              {(() => {
+                const primaryTransition = statusConfig.transitions[0];
+                if (!primaryTransition) return null;
+                return (
+                  <Button
+                    variant={getButtonVariant(primaryTransition.variant)}
+                    size="sm"
+                    onClick={() => onActionClick(primaryTransition.status as TStatus)}
+                    className="flex-1"
+                  >
+                    {primaryTransition.label}
+                  </Button>
+                );
+              })()}
+
+              {/* Dropdown for secondary actions */}
+              {statusConfig.transitions.length > 1 && (
+                <>
+                  <Button
+                    ref={buttonRef}
+                    variant="outline"
+                    size="sm"
+                    onClick={handleToggleDropdown}
+                    aria-expanded={dropdownOpen}
+                    aria-haspopup="true"
+                  >
+                    <span className="text-lg leading-none">...</span>
+                  </Button>
+                  {dropdownOpen &&
+                    createPortal(
+                      <>
+                        <div
+                          className="fixed inset-0 z-[100]"
+                          onClick={() => setDropdownOpen(false)}
+                          aria-hidden="true"
+                        />
+                        <div
+                          className="fixed z-[100] bg-white rounded-lg shadow-lg border border-slate-200 py-1 min-w-[140px]"
+                          style={{ top: dropdownPosition.top, right: dropdownPosition.right }}
+                        >
+                          {statusConfig.transitions.slice(1).map((transition) => (
+                            <button
+                              key={transition.status}
+                              onClick={() => {
+                                setDropdownOpen(false)
+                                onActionClick(transition.status as TStatus)
+                              }}
+                              className={`
+                                w-full text-left px-3 py-2 text-sm
+                                hover:bg-slate-50 transition-colors
+                                ${transition.variant === 'danger' ? 'text-rose-600' : ''}
+                                ${transition.variant === 'success' ? 'text-emerald-600' : ''}
+                                ${transition.variant === 'action' ? 'text-blue-600' : ''}
+                              `}
+                            >
+                              {transition.label}
+                            </button>
+                          ))}
+                        </div>
+                      </>,
+                      document.body
+                    )}
+                </>
+              )}
+            </div>
+          </>
         ) : (
           <span className="text-xs text-slate-400 italic px-2">Sin acciones disponibles</span>
         )}

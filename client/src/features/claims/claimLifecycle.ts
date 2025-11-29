@@ -22,7 +22,7 @@ import type { ClaimStatus } from './claims'
  * Button variant for transition actions
  * Must match Button component API
  */
-export type TransitionVariant = 'primary' | 'success' | 'danger'
+export type TransitionVariant = 'action' | 'success' | 'danger'
 
 /**
  * Status transition configuration
@@ -81,7 +81,7 @@ export const CLAIM_LIFECYCLE = {
         status: 'VALIDATION' as ClaimStatus,
         label: 'Validar',
         buttonLabel: 'Validar →',
-        variant: 'primary' as TransitionVariant,
+        variant: 'action' as TransitionVariant,
         icon: '→',
       },
       {
@@ -121,7 +121,7 @@ export const CLAIM_LIFECYCLE = {
         status: 'SUBMITTED' as ClaimStatus,
         label: 'Tramitar',
         buttonLabel: 'Tramitar →',
-        variant: 'primary' as TransitionVariant,
+        variant: 'action' as TransitionVariant,
         icon: '→',
       },
       {
@@ -171,7 +171,7 @@ export const CLAIM_LIFECYCLE = {
         status: 'PENDING_INFO' as ClaimStatus,
         label: 'Solicitar Info',
         buttonLabel: 'Solicitar Info',
-        variant: 'primary' as TransitionVariant,
+        variant: 'action' as TransitionVariant,
         icon: '?',
       },
       {
@@ -229,7 +229,7 @@ export const CLAIM_LIFECYCLE = {
         status: 'SUBMITTED' as ClaimStatus,
         label: 'Reenviar',
         buttonLabel: 'Reenviar →',
-        variant: 'primary' as TransitionVariant,
+        variant: 'action' as TransitionVariant,
         icon: '→',
       },
       {

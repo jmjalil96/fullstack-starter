@@ -58,7 +58,7 @@ router.put(
     const { id } = req.params
     const updates = req.body // Already validated and parsed by Zod (dates are Date objects)
 
-    const updated = await updateClaim(userId, id, updates)
+    const updated = await updateClaim(req, userId, id, updates)
 
     res.status(200).json(updated)
   })

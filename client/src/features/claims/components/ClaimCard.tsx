@@ -73,15 +73,15 @@ export function ClaimCard({ claim }: ClaimCardProps) {
       })
     : null
 
-  // Status color for left border (brand colors)
+  // Status color for left border (aligned with column headers)
   const statusBorderColor: Record<string, string> = {
     DRAFT: '#6b7280',         // gray-500
-    VALIDATION: '#06b6d4',    // cyan-500
+    VALIDATION: '#f59e0b',    // amber-500
     SUBMITTED: '#336f8f',     // navy-400
-    PENDING_INFO: '#9333ea',  // purple-600
-    RETURNED: '#f97316',      // orange-500
+    PENDING_INFO: '#f97316',  // orange-500
+    RETURNED: '#dc2626',      // red-600
     SETTLED: '#008c7e',       // teal
-    CANCELLED: '#dc2626',     // red-600
+    CANCELLED: '#6b7280',     // gray-500
   }
   const borderColor = statusBorderColor[claim.status] || '#6b7280'
 

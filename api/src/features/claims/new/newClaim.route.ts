@@ -30,7 +30,7 @@ router.post(
     }
     const userId = user.id
 
-    const claim = await createClaim(userId, req.body)
+    const claim = await createClaim(req, userId, req.body)
 
     res.status(201).json(claim)
   })

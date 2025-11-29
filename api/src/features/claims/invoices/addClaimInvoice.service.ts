@@ -12,6 +12,8 @@
 // IMPORTS
 // ============================================================================
 
+import type { Request } from 'express'
+
 import { db } from '../../../config/database.js'
 import { SENIOR_CLAIM_MANAGERS } from '../../../shared/constants/roles.js'
 import {
@@ -20,6 +22,7 @@ import {
   UnauthorizedError,
 } from '../../../shared/errors/errors.js'
 import { logger } from '../../../shared/middleware/logger.js'
+import { AuditService, extractAuditContext } from '../../../shared/services/audit.service.js'
 import { TERMINAL_STATES } from '../shared/claimLifecycle.blueprint.js'
 
 import type { AddClaimInvoiceRequest, AddClaimInvoiceResponse } from './addClaimInvoice.dto.js'
@@ -53,6 +56,7 @@ interface UserContext {
  * @returns Created invoice
  */
 export async function addClaimInvoice(
+  req: Request,
   userId: string,
   claimId: string,
   data: AddClaimInvoiceRequest
@@ -112,26 +116,16 @@ export async function addClaimInvoice(
       },
     })
 
-    // Create audit log
-    await tx.auditLog.create({
-      data: {
-        action: 'CLAIM_INVOICE_ADDED',
-        resourceType: 'ClaimInvoice',
-        resourceId: created.id,
-        userId,
-        clientId: claim.clientId,
-        changes: {
-          claimId,
-          invoice: {
-            invoiceNumber: data.invoiceNumber,
-            providerName: data.providerName,
-            amountSubmitted: data.amountSubmitted,
-          },
-        },
-        metadata: {
-          role: roleName,
-          claimStatus: claim.status,
-        },
+    // Create audit log via centralized service
+    const ctx = extractAuditContext(req, userId, claim.clientId, roleName as string)
+    await AuditService.invoiceAdded(tx, ctx, {
+      invoiceId: created.id,
+      claimId,
+      claimStatus: claim.status,
+      invoice: {
+        invoiceNumber: data.invoiceNumber,
+        providerName: data.providerName,
+        amountSubmitted: data.amountSubmitted,
       },
     })
 

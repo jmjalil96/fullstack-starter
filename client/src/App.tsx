@@ -30,6 +30,7 @@ import { TicketDetail } from './features/tickets/components/TicketDetail'
 import { TicketsList } from './features/tickets/components/TicketsList'
 import { QueryProvider } from './providers/QueryProvider'
 import { ErrorBoundary } from './shared/components/ErrorBoundary'
+import { GuestRoute } from './shared/components/GuestRoute'
 import { MainLayout } from './shared/components/layout/templates/MainLayout'
 import { ProtectedRoute } from './shared/components/ProtectedRoute'
 
@@ -47,11 +48,12 @@ function AppRoutes() {
           <Route path="/" element={<Home />} />
           <Route path="/test" element={<ComponentTest />} />
 
-          {/* Auth Routes */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
+          {/* Auth Routes - redirect to dashboard if already logged in */}
+          <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
+          <Route path="/signup" element={<GuestRoute><Signup /></GuestRoute>} />
+          <Route path="/forgot-password" element={<GuestRoute><ForgotPassword /></GuestRoute>} />
+          <Route path="/reset-password" element={<GuestRoute><ResetPassword /></GuestRoute>} />
+          {/* Invitation route - accessible regardless of auth state */}
           <Route path="/invite/:token" element={<AcceptInvite />} />
 
           {/* Protected Routes */}

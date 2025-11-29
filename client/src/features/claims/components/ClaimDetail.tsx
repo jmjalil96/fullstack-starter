@@ -14,12 +14,169 @@ import { PageHeader } from '../../../shared/components/ui/layout/PageHeader'
 import { WorkflowStepper } from '../../../shared/components/ui/layout/WorkflowStepper'
 import { formatCurrency, formatDate } from '../../../shared/utils/formatters'
 import { CARE_TYPE_LABELS, CLAIM_LIFECYCLE, isTerminalState } from '../claimLifecycle'
-import type { ClaimStatus } from '../claims'
-import { useClaimDetail } from '../hooks/useClaims'
+import type { ClaimAuditLogItem, ClaimInvoiceItem, ClaimStatus } from '../claims'
+import { useClaimAuditLogs, useClaimDetail } from '../hooks/useClaims'
 
 import { ClaimFilesTab } from './ClaimFilesTab'
+import { ClaimInvoiceModal } from './ClaimInvoiceModal'
 import { EditClaimModal } from './EditClaimModal'
 import { StatusTransitionModal } from './StatusTransitionModal'
+
+/**
+ * Invoice card with kebab menu for edit/delete actions
+ */
+interface InvoiceCardProps {
+  invoice: ClaimInvoiceItem
+  canEdit: boolean
+  onEdit: (invoice: ClaimInvoiceItem) => void
+  onDelete: (invoice: ClaimInvoiceItem) => void
+}
+
+function InvoiceCard({ invoice, canEdit, onEdit, onDelete }: InvoiceCardProps) {
+  const [menuOpen, setMenuOpen] = useState(false)
+
+  return (
+    <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 relative">
+      <div className="flex justify-between items-start mb-2">
+        <span className="text-sm font-medium text-gray-900">{invoice.invoiceNumber}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold text-[var(--color-navy)]">
+            {formatCurrency(invoice.amountSubmitted)}
+          </span>
+          {canEdit && (
+            <div className="relative">
+              <button
+                onClick={() => setMenuOpen(!menuOpen)}
+                className="p-1 hover:bg-gray-200 rounded transition-colors"
+                aria-label="Opciones de factura"
+              >
+                <svg className="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
+                </svg>
+              </button>
+              {menuOpen && (
+                <>
+                  {/* Backdrop to close menu */}
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setMenuOpen(false)}
+                    aria-hidden="true"
+                  />
+                  {/* Dropdown menu */}
+                  <div className="absolute right-0 top-8 z-20 w-36 bg-white rounded-lg shadow-lg border border-gray-200 py-1">
+                    <button
+                      onClick={() => {
+                        setMenuOpen(false)
+                        onEdit(invoice)
+                      }}
+                      className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                        />
+                      </svg>
+                      Editar
+                    </button>
+                    <button
+                      onClick={() => {
+                        setMenuOpen(false)
+                        onDelete(invoice)
+                      }}
+                      className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        />
+                      </svg>
+                      Eliminar
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+      <p className="text-sm text-gray-600">{invoice.providerName}</p>
+      <p className="text-xs text-gray-500 mt-2">
+        Subido por {invoice.createdByName} • {formatDate(invoice.createdAt)}
+      </p>
+    </div>
+  )
+}
+
+/**
+ * Audit log timeline entry component
+ */
+interface AuditLogEntryProps {
+  log: ClaimAuditLogItem
+  isLast: boolean
+}
+
+function AuditLogEntry({ log, isLast }: AuditLogEntryProps) {
+  return (
+    <div className="relative flex gap-4">
+      {/* Timeline connector */}
+      <div className="flex flex-col items-center">
+        <div className="w-3 h-3 bg-[var(--color-navy)] rounded-full mt-1 shrink-0" />
+        {!isLast && <div className="w-0.5 flex-1 bg-gray-200 mt-1" />}
+      </div>
+
+      {/* Content */}
+      <div className="pb-6 flex-1 min-w-0">
+        <div className="flex flex-wrap items-center gap-2 mb-1">
+          <span className="text-sm font-medium text-gray-900">{log.actionLabel}</span>
+          <span className="text-xs text-gray-500">
+            {new Date(log.createdAt).toLocaleString('es-PA', {
+              day: 'numeric',
+              month: 'short',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
+          </span>
+        </div>
+
+        {log.userName && (
+          <p className="text-xs text-gray-500 mb-2">por {log.userName}</p>
+        )}
+
+        {/* Field changes */}
+        {log.changes.length > 0 && (
+          <div className="space-y-1 mt-2">
+            {log.changes.map((change, idx) => (
+              <div
+                key={`${change.field}-${idx}`}
+                className="text-sm bg-gray-50 rounded px-3 py-2 border border-gray-100"
+              >
+                <span className="font-medium text-gray-700">{change.fieldLabel}:</span>
+                {change.oldValue !== null && change.newValue !== null ? (
+                  <span className="ml-2 text-gray-600">
+                    <span className="line-through text-gray-400">{change.oldValue}</span>
+                    <span className="mx-2 text-gray-400">→</span>
+                    <span className="text-gray-900">{change.newValue}</span>
+                  </span>
+                ) : change.oldValue !== null ? (
+                  <span className="ml-2 text-red-600 line-through">{change.oldValue}</span>
+                ) : (
+                  <span className="ml-2 text-green-700">{change.newValue}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
 
 export function ClaimDetail() {
   const { id } = useParams<{ id: string }>()
@@ -29,8 +186,19 @@ export function ClaimDetail() {
   const [transitionModalOpen, setTransitionModalOpen] = useState(false)
   const [transitionTarget, setTransitionTarget] = useState<ClaimStatus | null>(null)
 
+  // Invoice modal state
+  const [invoiceModalOpen, setInvoiceModalOpen] = useState(false)
+  const [selectedInvoice, setSelectedInvoice] = useState<ClaimInvoiceItem | null>(null)
+  const [invoiceModalMode, setInvoiceModalMode] = useState<'create' | 'edit' | 'delete'>('create')
+
   // Main claim data
   const { data: claim, isLoading: claimLoading, error, isError } = useClaimDetail(id || '')
+
+  // Audit logs (lazy load when history tab is active)
+  const {
+    data: auditLogsData,
+    isLoading: auditLogsLoading,
+  } = useClaimAuditLogs(id || '', { enabled: activeTab === 'history' && !!id })
 
   // Guard: No ID
   if (!id) {
@@ -121,6 +289,25 @@ export function ClaimDetail() {
     setTransitionModalOpen(true)
   }
 
+  // Invoice modal handlers
+  const handleAddInvoice = () => {
+    setSelectedInvoice(null)
+    setInvoiceModalMode('create')
+    setInvoiceModalOpen(true)
+  }
+
+  const handleEditInvoice = (invoice: ClaimInvoiceItem) => {
+    setSelectedInvoice(invoice)
+    setInvoiceModalMode('edit')
+    setInvoiceModalOpen(true)
+  }
+
+  const handleDeleteInvoice = (invoice: ClaimInvoiceItem) => {
+    setSelectedInvoice(invoice)
+    setInvoiceModalMode('delete')
+    setInvoiceModalOpen(true)
+  }
+
   // Sidebar items
   const sidebarItems: SidebarItem[] = [
     {
@@ -136,6 +323,36 @@ export function ClaimDetail() {
           />
         </svg>
       ),
+    },
+    {
+      id: 'invoices',
+      label: 'Facturas',
+      icon: (
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"
+          />
+        </svg>
+      ),
+      badge: claim.invoices?.length || undefined,
+    },
+    {
+      id: 'history',
+      label: 'Historial',
+      icon: (
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+          />
+        </svg>
+      ),
+      badge: claim.reprocesses?.length || undefined,
     },
     {
       id: 'files',
@@ -281,9 +498,84 @@ export function ClaimDetail() {
             </DataGrid>
           </DetailSection>
 
-          {/* Reprocesses Section - Only show if there are reprocesses */}
-          {claim.reprocesses && claim.reprocesses.length > 0 && (
-            <DetailSection title="Historial de Reprocesos">
+          {/* Metadata Section */}
+          <DetailSection title="Información del Sistema">
+            <DataGrid columns={2}>
+              <DataField label="Creado por" value={claim.createdByName} />
+              <DataField label="Fecha de Creación" value={formatDate(claim.createdAt)} />
+              <DataField label="Actualizado por" value={claim.updatedByName} />
+              <DataField label="Última Actualización" value={formatDate(claim.updatedAt)} />
+            </DataGrid>
+          </DetailSection>
+        </>
+      )}
+
+      {/* Invoices Tab */}
+      {activeTab === 'invoices' && (
+        <DetailSection title="Facturas Presentadas">
+          {/* Total sum row */}
+          {claim.invoices && claim.invoices.length > 0 && (
+            <div className="mb-4 p-4 bg-[var(--color-navy)]/5 rounded-lg border border-[var(--color-navy)]/10">
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium text-gray-600">
+                  Total ({claim.invoices.length} factura{claim.invoices.length !== 1 ? 's' : ''})
+                </span>
+                <span className="text-lg font-bold text-[var(--color-navy)]">
+                  {formatCurrency(claim.invoices.reduce((sum, inv) => sum + inv.amountSubmitted, 0))}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Invoice list */}
+          {claim.invoices && claim.invoices.length > 0 ? (
+            <div className="space-y-3">
+              {claim.invoices.map((invoice) => (
+                <InvoiceCard
+                  key={invoice.id}
+                  invoice={invoice}
+                  canEdit={canEdit}
+                  onEdit={handleEditInvoice}
+                  onDelete={handleDeleteInvoice}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              No hay facturas registradas para este reclamo.
+            </div>
+          )}
+
+          {/* Add Invoice Button */}
+          {canEdit && (
+            <div className="mt-4">
+              <Button variant="outline" onClick={handleAddInvoice} className="w-full">
+                <svg
+                  className="w-4 h-4 mr-2"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4v16m8-8H4"
+                  />
+                </svg>
+                Agregar Factura
+              </Button>
+            </div>
+          )}
+        </DetailSection>
+      )}
+
+      {/* History Tab */}
+      {activeTab === 'history' && (
+        <>
+          {/* Reprocess History Section */}
+          <DetailSection title="Historial de Reprocesos">
+            {claim.reprocesses && claim.reprocesses.length > 0 ? (
               <div className="space-y-3">
                 {claim.reprocesses.map((reprocess, index) => (
                   <div
@@ -307,17 +599,43 @@ export function ClaimDetail() {
                   </div>
                 ))}
               </div>
-            </DetailSection>
-          )}
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                No hay reprocesos registrados para este reclamo.
+              </div>
+            )}
+          </DetailSection>
 
-          {/* Metadata Section */}
-          <DetailSection title="Información del Sistema">
-            <DataGrid columns={2}>
-              <DataField label="Creado por" value={claim.createdByName} />
-              <DataField label="Fecha de Creación" value={formatDate(claim.createdAt)} />
-              <DataField label="Actualizado por" value={claim.updatedByName} />
-              <DataField label="Última Actualización" value={formatDate(claim.updatedAt)} />
-            </DataGrid>
+          {/* Audit Trail */}
+          <DetailSection title="Registro de Cambios">
+            {auditLogsLoading ? (
+              <div className="space-y-4 animate-pulse">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="flex gap-4">
+                    <div className="w-3 h-3 bg-gray-200 rounded-full mt-1" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 bg-gray-200 rounded w-1/3" />
+                      <div className="h-3 bg-gray-200 rounded w-1/4" />
+                      <div className="h-10 bg-gray-200 rounded w-full" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : auditLogsData?.items && auditLogsData.items.length > 0 ? (
+              <div>
+                {auditLogsData.items.map((log, index) => (
+                  <AuditLogEntry
+                    key={log.id}
+                    log={log}
+                    isLast={index === auditLogsData.items.length - 1}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                No hay cambios registrados para este reclamo.
+              </div>
+            )}
           </DetailSection>
         </>
       )}
@@ -340,6 +658,15 @@ export function ClaimDetail() {
           targetStatus={transitionTarget}
         />
       )}
+
+      {/* Invoice Modal */}
+      <ClaimInvoiceModal
+        isOpen={invoiceModalOpen}
+        onClose={() => setInvoiceModalOpen(false)}
+        claimId={claim.id}
+        invoice={selectedInvoice}
+        mode={invoiceModalMode}
+      />
     </DetailLayout>
   )
 }

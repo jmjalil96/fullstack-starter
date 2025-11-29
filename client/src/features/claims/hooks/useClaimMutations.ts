@@ -10,10 +10,12 @@ export function useCreateClaim() {
 
   return useMutation({
     mutationFn: (data: CreateClaimRequest) => createClaim(data),
-    onSuccess: () => {
+    onSuccess: (result) => {
       // Invalidate both list and kanban views
       queryClient.invalidateQueries({ queryKey: CLAIMS_KEYS.lists() })
       queryClient.invalidateQueries({ queryKey: CLAIMS_KEYS.kanban() })
+      // Invalidate audit logs for the new claim
+      queryClient.invalidateQueries({ queryKey: CLAIMS_KEYS.auditLogs(result.id) })
     },
   })
 }
@@ -28,6 +30,8 @@ export function useUpdateClaim() {
       // Invalidate both list and kanban views
       queryClient.invalidateQueries({ queryKey: CLAIMS_KEYS.lists() })
       queryClient.invalidateQueries({ queryKey: CLAIMS_KEYS.kanban() })
+      // Invalidate audit logs to show the new entry
+      queryClient.invalidateQueries({ queryKey: CLAIMS_KEYS.auditLogs(variables.id) })
     },
   })
 }

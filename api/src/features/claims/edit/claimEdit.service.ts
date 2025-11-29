@@ -15,6 +15,9 @@
 // IMPORTS
 // ============================================================================
 
+import type { Prisma } from '@prisma/client'
+import type { Request } from 'express'
+
 import { db } from '../../../config/database.js'
 import {
   BadRequestError,
@@ -23,6 +26,7 @@ import {
   UnauthorizedError,
 } from '../../../shared/errors/errors.js'
 import { logger } from '../../../shared/middleware/logger.js'
+import { AuditService, extractAuditContext } from '../../../shared/services/audit.service.js'
 import {
   CLAIM_LIFECYCLE_BLUEPRINT,
   type ClaimLifecycleState,
@@ -85,6 +89,7 @@ interface UserContext {
  * @throws {BadRequestError} If validation fails (forbidden fields, invalid transition, missing requirements)
  */
 export async function updateClaim(
+  req: Request,
   userId: string,
   claimId: string,
   updates: ClaimUpdateParsed
@@ -258,24 +263,14 @@ export async function updateClaim(
       data,
     })
 
-    // Create audit log with before/after diff
-    await tx.auditLog.create({
-      data: {
-        action: 'CLAIM_UPDATED',
-        resourceType: 'Claim',
-        resourceId: claimId,
-        userId,
-        clientId: current.clientId,
-        changes: {
-          before: current,
-          after: { ...current, ...data },
-        },
-        metadata: {
-          role: roleName,
-          statusTransition: isTransitioning ? { from: current.status, to: toStatus } : null,
-          reprocessCreated: isPendingInfoToSubmitted,
-        },
-      },
+    // Create audit log via centralized service
+    const ctx = extractAuditContext(req, userId, current.clientId, roleName as string)
+    await AuditService.claimUpdated(tx, ctx, {
+      claimId,
+      before: current as unknown as Prisma.JsonObject,
+      after: { ...current, ...data } as unknown as Prisma.JsonObject,
+      statusTransition: isTransitioning ? { from: current.status, to: toStatus as string } : null,
+      reprocessCreated: isPendingInfoToSubmitted,
     })
   })
 

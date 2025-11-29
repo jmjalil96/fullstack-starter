@@ -1,7 +1,7 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 
 import type { ClaimStatus } from '../claims'
-import { getClaimById, getClaims } from '../claimsApi'
+import { getClaimAuditLogs, getClaimById, getClaims } from '../claimsApi'
 
 // Centralized Query Keys
 export const CLAIMS_KEYS = {
@@ -16,6 +16,10 @@ export const CLAIMS_KEYS = {
   // Mobile list keys (infinite scroll, separate from paginated list)
   mobileList: () => [...CLAIMS_KEYS.all, 'mobile'] as const,
   mobileListParams: (params: Record<string, unknown>) => [...CLAIMS_KEYS.mobileList(), params] as const,
+  // Audit logs keys
+  auditLogs: (claimId: string) => [...CLAIMS_KEYS.detail(claimId), 'audit-logs'] as const,
+  auditLogsPage: (claimId: string, params: Record<string, unknown>) =>
+    [...CLAIMS_KEYS.auditLogs(claimId), params] as const,
 }
 
 // --- List Query ---
@@ -50,5 +54,26 @@ export function useClaimDetail(claimId: string) {
     queryFn: ({ signal }) => getClaimById(claimId, { signal }),
     staleTime: 1000 * 60 * 5,
     retry: 1,
+  })
+}
+
+// --- Audit Logs Query ---
+
+interface UseClaimAuditLogsParams {
+  page?: number
+  limit?: number
+  enabled?: boolean
+}
+
+export function useClaimAuditLogs(
+  claimId: string,
+  { enabled = true, ...params }: UseClaimAuditLogsParams = {}
+) {
+  return useQuery({
+    queryKey: CLAIMS_KEYS.auditLogsPage(claimId, params as Record<string, unknown>),
+    queryFn: ({ signal }) => getClaimAuditLogs(claimId, params, { signal }),
+    placeholderData: keepPreviousData,
+    staleTime: 1000 * 60 * 5,
+    enabled,
   })
 }

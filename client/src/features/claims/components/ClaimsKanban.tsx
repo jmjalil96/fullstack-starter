@@ -117,16 +117,14 @@ interface ColumnHeaderProps {
 }
 
 function ColumnHeader({ label, color, count }: ColumnHeaderProps) {
-  // Map lifecycle color to Tailwind classes
+  // Map lifecycle color to Tailwind classes (aligned with ClaimCard borders)
   const colorStyles: Record<string, { dot: string; badge: string }> = {
     gray: { dot: 'bg-gray-500', badge: 'bg-gray-50 text-gray-700 ring-gray-600/20' },
-    blue: { dot: 'bg-blue-500', badge: 'bg-blue-50 text-blue-700 ring-blue-600/20' },
-    cyan: { dot: 'bg-cyan-500', badge: 'bg-cyan-50 text-cyan-700 ring-cyan-600/20' },
-    yellow: { dot: 'bg-yellow-500', badge: 'bg-yellow-50 text-yellow-700 ring-yellow-600/20' },
-    purple: { dot: 'bg-purple-500', badge: 'bg-purple-50 text-purple-700 ring-purple-600/20' },
+    amber: { dot: 'bg-amber-500', badge: 'bg-amber-50 text-amber-700 ring-amber-600/20' },
+    navy: { dot: 'bg-[#336f8f]', badge: 'bg-blue-50 text-blue-800 ring-blue-600/20' },
     orange: { dot: 'bg-orange-500', badge: 'bg-orange-50 text-orange-700 ring-orange-600/20' },
-    green: { dot: 'bg-green-500', badge: 'bg-green-50 text-green-700 ring-green-600/20' },
-    red: { dot: 'bg-red-500', badge: 'bg-red-50 text-red-700 ring-red-600/20' },
+    red: { dot: 'bg-red-600', badge: 'bg-red-50 text-red-700 ring-red-600/20' },
+    teal: { dot: 'bg-[#008c7e]', badge: 'bg-teal-50 text-teal-700 ring-teal-600/20' },
   }
   const style = colorStyles[color] ?? { dot: 'bg-gray-500', badge: 'bg-gray-50 text-gray-600 ring-gray-500/10' }
 
@@ -160,12 +158,13 @@ interface EmptyColumnStateProps {
 }
 
 function EmptyColumnState({ status }: EmptyColumnStateProps) {
+  // Icon colors aligned with column headers and card borders
   const configs: Record<ClaimStatus, { title: string; subtitle: string; icon: React.ReactNode }> = {
     DRAFT: {
       title: 'Sin borradores',
       subtitle: 'No hay reclamos en preparación',
       icon: (
-        <svg className="w-6 h-6 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg className="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
         </svg>
       ),
@@ -174,7 +173,7 @@ function EmptyColumnState({ status }: EmptyColumnStateProps) {
       title: 'Nada en validación',
       subtitle: 'Todo está al día',
       icon: (
-        <svg className="w-6 h-6 text-cyan-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg className="w-6 h-6 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
         </svg>
       ),
@@ -183,7 +182,7 @@ function EmptyColumnState({ status }: EmptyColumnStateProps) {
       title: 'Sin envíos',
       subtitle: 'No hay reclamos enviados',
       icon: (
-        <svg className="w-6 h-6 text-blue-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg className="w-6 h-6 text-[#336f8f]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
         </svg>
       ),
@@ -192,7 +191,7 @@ function EmptyColumnState({ status }: EmptyColumnStateProps) {
       title: 'Sin pendientes',
       subtitle: 'No hay reclamos esperando información',
       icon: (
-        <svg className="w-6 h-6 text-purple-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg className="w-6 h-6 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       ),
@@ -201,7 +200,7 @@ function EmptyColumnState({ status }: EmptyColumnStateProps) {
       title: 'Sin devoluciones',
       subtitle: 'No hay reclamos devueltos',
       icon: (
-        <svg className="w-6 h-6 text-orange-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg className="w-6 h-6 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
         </svg>
       ),
@@ -210,7 +209,7 @@ function EmptyColumnState({ status }: EmptyColumnStateProps) {
       title: 'Sin liquidaciones',
       subtitle: 'Aún no hay reclamos liquidados',
       icon: (
-        <svg className="w-6 h-6 text-green-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg className="w-6 h-6 text-[#008c7e]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       ),
@@ -219,7 +218,7 @@ function EmptyColumnState({ status }: EmptyColumnStateProps) {
       title: 'Sin cancelaciones',
       subtitle: 'No hay reclamos cancelados',
       icon: (
-        <svg className="w-6 h-6 text-red-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg className="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       ),
